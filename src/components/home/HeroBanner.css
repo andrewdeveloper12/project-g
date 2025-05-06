@@ -1,0 +1,8 @@
+.text-teal-400 {
+    color: #2dd4bf !important;
+  }
+  /* In your global CSS file or inside the component's style block */
+body, html {
+    overflow-x: hidden; /* Prevent horizontal scrolling */
+  }
+  

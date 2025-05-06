@@ -1,0 +1,95 @@
+.anemia-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 30px;
+  }
+  .text-center {
+    font-size: 22px;
+  }
+  .anemia-header {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  
+  .anemia-title {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #2d3748;
+    margin-top: -10px;
+  }
+  
+  .form-card {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 1000px;
+  }
+  
+  .form-group {
+    margin-bottom: 20px;
+  }
+  
+  .input-field {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    margin-top: 6px;
+  }
+  
+  .input-row {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .input-col {
+    flex: 1;
+  }
+  
+  .gender-tabs {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  
+  .gender-tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+  
+  .gender-tab.selected {
+    background-color: #3182ce;
+    color: #fff;
+    border-color: #3182ce;
+  }
+  
+  .unit {
+    font-size: 0.9rem;
+    color: #777;
+  }
+  
+  .submit-btn {
+    width: 100%;
+    padding: 12px;
+    background-color: #3182ce;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    margin-top: 15px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  
+  .submit-btn:hover {
+    background-color: #2563eb;
+  }
+  

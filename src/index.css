@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.containerS {
+  width: 600px;
+  margin: 50px auto;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.h1 {
+  font-size: 30px;
+  font-family: 
+    ui-sans-serif,
+    system-ui,
+    sans-serif,
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    "Segoe UI Symbol",
+    "Noto Color Emoji";
+  font-weight: 700;
+  border-radius: 20px;
+}
+
+.containerss {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  height: 150vh;
+}
+
+h1, h2, h3 {
+  text-align: center;
+  color: #333;
+}
+
+p {
+  color: #555;
+  line-height: 1.5;
+}
+
+form {
+  margin-top: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: green;
+}
+
+input[type="number"],
+input[type="text"],
+input[type="file"],
+select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-sizing: border-box;
+  margin-bottom: 5px;
+}
+
+button {
+  display: inline-block;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+button:hover {
+  background: #21ba3b;
+}
+
+.result,
+#results {
+  margin-top: 20px;
+  background: #e9ffe9;
+  padding: 10px;
+  border: 1px solid #b2d8b2;
+  border-radius: 4px;
+}
+
+a {
+  display: block;
+  text-align: center;
+  margin-top: 20px;
+  color: green;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.hidden {
+  display: none;
+}
+
+.options {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.options a.btn {
+  display: inline-block;
+  background: #dde5ed;
+  color: #fff;
+  padding: 10px 20px;
+  margin: 5px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 16px;
+}
+
+.options a.btn:hover {
+  background: #22ef07;
+}
+
+form input[type="number"],
+form input[type="text"] {
+  margin-bottom: 10px;
+}
+
+@media (max-width: 600px) {
+  .container {
+    margin: 20px;
+    padding: 15px;
+  }
+
+  button {
+    width: 100%;
+  }
+}
+
