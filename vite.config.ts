@@ -4,6 +4,7 @@ import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/project-g/', // 👈 ده السطر المهم لإصلاح صفحة بيضاء على GitHub Pages
   plugins: [react()],
   resolve: {
     alias: {

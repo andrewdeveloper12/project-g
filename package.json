@@ -1,14 +1,17 @@
 {
   "name": "vite-react-typescript-starter",
-  "private": true,
   "version": "0.0.0",
+  "homepage": "https://andrewdeveloper12.github.io/project-g",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@google/generative-ai": "^0.2.1",
@@ -16,20 +19,20 @@
     "framer-motion": "^12.6.3",
     "i18next": "^24.2.3",
     "lucide-react": "^0.487.0",
-    "react": "^19.1.0",
+    "react": "^18.3.1",
     "react-axios": "^2.0.6",
     "react-chartjs-2": "^5.3.0",
-    "react-dom": "^19.1.0",
+    "react-dom": "^18.3.1",
     "react-i18next": "^15.4.1",
     "react-router-dom": "^7.5.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
     "@types/node": "^22.14.0",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.1.1",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
     "@types/react-router-dom": "^5.3.3",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
@@ -40,60 +43,7 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
-    "vite": "^6.2.5",
+    "vite": "^5.4.2",
     "vite-tsconfig-paths": "^5.1.4"
-  },
-  "chat": {
-    "assistant_types": {
-      "medical": "Medical Assistant",
-      "technical": "Technical Assistant",
-      "educational": "Educational Assistant",
-      "general": "General Assistant"
-    },
-    "assistant_prompts": {
-      "medical": "You are a helpful medical assistant. Provide accurate medical information in simple terms. Always recommend consulting a doctor for serious concerns.",
-      "technical": "You are a technical support assistant. Explain technical concepts clearly and provide step-by-step solutions.",
-      "educational": "You are an educational tutor. Explain concepts in an engaging, easy-to-understand manner suitable for students.",
-      "general": "You are a helpful, knowledgeable assistant. Provide clear, concise answers to any questions."
-    },
-    "you": "You",
-    "assistant": "Assistant",
-    "clear": "Clear Chat",
-    "thinking": "Thinking...",
-    "error": {
-      "title": "Error",
-      "message": "An error occurred: {error}",
-      "unknown": "An unknown error occurred"
-    },
-    "api_key_error": {
-      "title": "Configuration Error",
-      "message": "Invalid API key configuration",
-      "missing": "API key not found in .env file",
-      "invalid": "Please check your API key format"
-    },
-    "placeholder": "Type your message...",
-    "welcome_message": "Start a conversation with the assistant...",
-    "clear_confirm": "Are you sure you want to clear the chat?",
-    "load_error": "Failed to load chat history",
-    "get_key": "Get API Key",
-    "setup_guide": "Setup Guide"
-  },
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "module": "ESNext",
-    "target": "ESNext",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "moduleResolution": "node",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": [
-        "src/*"
-      ]
-    }
-  },
-  "include": [
-    "src"
-  ]
+  }
 }
