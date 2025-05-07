@@ -12,7 +12,7 @@ const HeroBanner: React.FC = () => {
     <div
       className="relative h-screen bg-cover bg-center overflow-hidden"
       style={{
-        backgroundImage: `url('https://images.unsplash.com/photo-1506617420156-8e4536971650?q=80&w=2023&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`,
+        backgroundImage: `url('https://images.unsplash.com/photo-1506617420156-8e4536971650?q=80&w=2023&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`, // ✅ نفس اسم الصورة الأصلي
       }}
       dir={isRTL ? 'rtl' : 'ltr'}
     >
