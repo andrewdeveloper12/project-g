@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './components/Context/AuthContext';
 import { ResultsProvider } from './components/Context/ResultsContext';
@@ -45,8 +45,6 @@ const AppContent: React.FC = () => {
           <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
           <Route path="/contactus" element={<ContactUs />} />
           <Route path="/communitypage" element={<CommunityPage />} />
-
-          
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>

@@ -1,15 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tsconfigPaths from 'vite-tsconfig-paths';
 import path from 'path';
 
-// https://vitejs.dev/config/
 export default defineConfig({
-  base: '/project-g/', // 👈 ده السطر المهم لإصلاح صفحة بيضاء على GitHub Pages
-  plugins: [react()],
+  base: '/project-g/',
+  plugins: [react(), tsconfigPaths()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      // Add other aliases as needed
     },
   },
   optimizeDeps: {
@@ -19,11 +18,11 @@ export default defineConfig({
       'react-i18next',
       'axios'
     ],
-    exclude: ['lucide-react'], // Keep this if you're having tree-shaking issues
+    exclude: ['lucide-react'],
   },
   server: {
-    port: 5173, // Set your preferred port
-    open: true // Automatically open browser
+    port: 5173,
+    open: true
   },
   build: {
     outDir: 'dist',
