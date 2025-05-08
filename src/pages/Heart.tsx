@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
 import { Heart, HeartPulse } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useTranslation } from 'react-i18next';
 import { useResults } from '../components/Context/ResultsContext';
 
 const HeartHealthForm: React.FC = () => {
-  const { t } = useTranslation();
   const { addHeartResult } = useResults();
   
   const [formData, setFormData] = useState({
@@ -86,13 +83,13 @@ const HeartHealthForm: React.FC = () => {
     // Determine risk level
     let determinedRiskLevel = '';
     if (calculatedRiskScore >= 10) {
-      determinedRiskLevel = t('heart.highRisk');
+      determinedRiskLevel = 'High Risk';
     } else if (calculatedRiskScore >= 6) {
-      determinedRiskLevel = t('heart.moderateRisk');
+      determinedRiskLevel = 'Moderate Risk';
     } else if (calculatedRiskScore >= 3) {
-      determinedRiskLevel = t('heart.lowRisk');
+      determinedRiskLevel = 'Low Risk';
     } else {
-      determinedRiskLevel = t('heart.veryLowRisk');
+      determinedRiskLevel = 'Very Low Risk';
     }
 
     return {
@@ -105,17 +102,14 @@ const HeartHealthForm: React.FC = () => {
     e.preventDefault();
     
     if (!formData.age || !formData.gender || !formData.bloodPressure || !formData.cholesterol) {
-      alert(t('heart.requiredFields'));
+      alert('Please fill in all required fields marked with *');
       return;
     }
 
     const { riskScore: calculatedRiskScore, riskLevel: determinedRiskLevel } = assessHeartHealth();
     
     setRiskScore(calculatedRiskScore);
-    setDiagnosis(t('heart.riskAssessment', { 
-      riskLevel: determinedRiskLevel, 
-      riskScore: calculatedRiskScore 
-    }));
+    setDiagnosis(`Based on your inputs, your heart health risk level is: ${determinedRiskLevel} (Score: ${calculatedRiskScore}/15)`);
     setRiskLevel(determinedRiskLevel);
     setShowDiagnosis(true);
     
@@ -134,48 +128,45 @@ const HeartHealthForm: React.FC = () => {
   };
 
   const getRecommendations = () => {
-    if (!riskLevel) return [t('heart.generalRec')];
+    if (!riskLevel) return ['Maintain a balanced lifestyle with regular check-ups'];
     
-    const recommendations = [t('heart.healthyDiet'), t('heart.regularExercise')];
+    const recommendations = ['Maintain a balanced diet rich in fruits, vegetables, and whole grains', 'Engage in regular physical activity (at least 150 minutes per week)'];
     
-    if (riskLevel.includes(t('heart.highRisk'))) {
-      recommendations.push(t('heart.consultCardiologist'));
-      recommendations.push(t('heart.medicationConsideration'));
-      recommendations.push(t('heart.stressTestRecommended'));
-    } else if (riskLevel.includes(t('heart.moderateRisk'))) {
-      recommendations.push(t('heart.monitorRegularly'));
-      recommendations.push(t('heart.reduceSodium'));
-      recommendations.push(t('heart.cholesterolCheck'));
+    if (riskLevel.includes('High Risk')) {
+      recommendations.push('Consult with a cardiologist promptly');
+      recommendations.push('Consider medication as recommended by your healthcare provider');
+      recommendations.push('Undergo a comprehensive heart health screening');
+    } else if (riskLevel.includes('Moderate Risk')) {
+      recommendations.push('Monitor your blood pressure regularly');
+      recommendations.push('Reduce sodium intake in your diet');
+      recommendations.push('Schedule a cholesterol check within 3 months');
     }
     
-    recommendations.push(t('heart.noSmoking'));
-    recommendations.push(t('heart.stressManagement'));
+    recommendations.push('Avoid smoking and limit alcohol consumption');
+    recommendations.push('Practice stress management techniques like meditation or yoga');
     return recommendations;
   };
 
   return (
     <div className="heart-container px-4 py-7">
-      <motion.div
-        initial={{ opacity: 0, y: 100 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+      <div
         className="heart-header mb-12 text-center"
       >
         <Heart className="w-16 h-16 text-red-500 mx-auto mb-2" />
         <h1 className="text-4xl font-bold text-gray-800">
-          {t('heart.title')}
+          Heart Health Assessment
         </h1>
         <p className="text-gray-600 text-md mt-2">
-          {t('heart.description')}
+          Complete the form below to evaluate your heart health risk
         </p>
-      </motion.div>
+      </div>
 
       <div className="form-card bg-white p-6 rounded-xl shadow-md max-w-6xl mx-auto mb-12">
         <form onSubmit={handleSubmit}>
           {/* Age */}
           <div className="form-group mb-6">
             <label htmlFor="age" className="block text-gray-700 mb-1">
-              {t('heart.age')} *
+              Age *
             </label>
             <input
               type="number"
@@ -184,7 +175,7 @@ const HeartHealthForm: React.FC = () => {
               min="18"
               max="120"
               required
-              placeholder={t('heart.agePlaceholder')}
+              placeholder="Enter your age (18-120)"
               value={formData.age}
               onChange={handleChange}
               className="w-full border p-2 rounded-md"
@@ -194,7 +185,7 @@ const HeartHealthForm: React.FC = () => {
           {/* Gender */}
           <div className="form-group mb-6">
             <label className="block text-gray-700 font-semibold mb-2">
-              {t('heart.gender')} *
+              Gender *
             </label>
             <div className="flex space-x-4">
               <div
@@ -203,7 +194,7 @@ const HeartHealthForm: React.FC = () => {
                 }`}
                 onClick={() => handleGenderSelect('male')}
               >
-                {t('heart.male')}
+                Male
               </div>
               <div
                 className={`cursor-pointer px-4 py-2 border rounded-md ${
@@ -211,7 +202,7 @@ const HeartHealthForm: React.FC = () => {
                 }`}
                 onClick={() => handleGenderSelect('female')}
               >
-                {t('heart.female')}
+                Female
               </div>
             </div>
           </div>
@@ -219,7 +210,7 @@ const HeartHealthForm: React.FC = () => {
           {/* Chest Pain Type */}
           <div className="form-group mb-6">
             <label htmlFor="chestPainType" className="block text-gray-700 mb-1">
-              {t('heart.chestPainType')} *
+              Chest Pain Type *
             </label>
             <select
               id="chestPainType"
@@ -229,19 +220,19 @@ const HeartHealthForm: React.FC = () => {
               onChange={handleChange}
               className="w-full border p-2 rounded-md"
             >
-              <option value="">{t('heart.selectChestPainType')}</option>
-              <option value="typical-angina">{t('heart.typicalAngina')}</option>
-              <option value="atypical-angina">{t('heart.atypicalAngina')}</option>
-              <option value="non-anginal">{t('heart.nonAnginal')}</option>
-              <option value="asymptomatic">{t('heart.asymptomatic')}</option>
+              <option value="">Select chest pain type</option>
+              <option value="typical-angina">Typical Angina</option>
+              <option value="atypical-angina">Atypical Angina</option>
+              <option value="non-anginal">Non-Anginal Pain</option>
+              <option value="asymptomatic">Asymptomatic</option>
             </select>
           </div>
 
           {/* Blood Pressure */}
           <div className="form-group mb-6">
             <label htmlFor="bloodPressure" className="block text-gray-700 mb-1">
-              {t('heart.bloodPressure')} (mm Hg) *
-              <span className="text-sm text-gray-500 ml-2">{t('heart.normalRange')}: 90-120</span>
+              Blood Pressure (mm Hg) *
+              <span className="text-sm text-gray-500 ml-2">Normal range: 90-120</span>
             </label>
             <input
               type="number"
@@ -250,7 +241,7 @@ const HeartHealthForm: React.FC = () => {
               min="50"
               max="250"
               required
-              placeholder={t('heart.bloodPressurePlaceholder')}
+              placeholder="Enter your systolic blood pressure"
               value={formData.bloodPressure}
               onChange={handleChange}
               className="w-full border p-2 rounded-md"
@@ -260,8 +251,8 @@ const HeartHealthForm: React.FC = () => {
           {/* Cholesterol */}
           <div className="form-group mb-6">
             <label htmlFor="cholesterol" className="block text-gray-700 mb-1">
-              {t('heart.cholesterol')} (mg/dL) *
-              <span className="text-sm text-gray-500 ml-2">{t('heart.desirable')}: &lt;200</span>
+              Cholesterol (mg/dL) *
+              <span className="text-sm text-gray-500 ml-2">Desirable: &lt;200</span>
             </label>
             <input
               type="number"
@@ -270,7 +261,7 @@ const HeartHealthForm: React.FC = () => {
               min="100"
               max="400"
               required
-              placeholder={t('heart.cholesterolPlaceholder')}
+              placeholder="Enter your cholesterol level"
               value={formData.cholesterol}
               onChange={handleChange}
               className="w-full border p-2 rounded-md"
@@ -280,7 +271,7 @@ const HeartHealthForm: React.FC = () => {
           {/* Blood Sugar */}
           <div className="form-group mb-6">
             <label className="block text-gray-700 font-semibold mb-2">
-              {t('heart.bloodSugarQuestion')} *
+              Fasting Blood Sugar &gt; 120 mg/dl? *
             </label>
             <div className="flex space-x-4">
               <div
@@ -289,7 +280,7 @@ const HeartHealthForm: React.FC = () => {
                 }`}
                 onClick={() => setFormData(prev => ({ ...prev, bloodSugar: 'yes' }))}
               >
-                {t('heart.yes')}
+                Yes
               </div>
               <div
                 className={`cursor-pointer px-4 py-2 border rounded-md ${
@@ -297,7 +288,7 @@ const HeartHealthForm: React.FC = () => {
                 }`}
                 onClick={() => setFormData(prev => ({ ...prev, bloodSugar: 'no' }))}
               >
-                {t('heart.no')}
+                No
               </div>
             </div>
           </div>
@@ -305,7 +296,7 @@ const HeartHealthForm: React.FC = () => {
           {/* ECG Results */}
           <div className="form-group mb-6">
             <label htmlFor="ecgResults" className="block text-gray-700 mb-1">
-              {t('heart.ecgResults')} *
+              ECG Results *
             </label>
             <select
               id="ecgResults"
@@ -315,18 +306,18 @@ const HeartHealthForm: React.FC = () => {
               onChange={handleChange}
               className="w-full border p-2 rounded-md"
             >
-              <option value="">{t('heart.selectEcgResult')}</option>
-              <option value="normal">{t('heart.normal')}</option>
-              <option value="st-t-abnormality">{t('heart.sttAbnormality')}</option>
-              <option value="abnormal">{t('heart.abnormal')}</option>
+              <option value="">Select ECG result</option>
+              <option value="normal">Normal</option>
+              <option value="st-t-abnormality">ST-T Wave Abnormality</option>
+              <option value="abnormal">Left Ventricular Hypertrophy</option>
             </select>
           </div>
 
           {/* Max Heart Rate */}
           <div className="form-group mb-6">
             <label htmlFor="maxHeartRate" className="block text-gray-700 mb-1">
-              {t('heart.maxHeartRate')} (bpm)
-              <span className="text-sm text-gray-500 ml-2">{t('heart.averageMax')}: 220 - {formData.age || 'age'}</span>
+              Max Heart Rate (bpm)
+              <span className="text-sm text-gray-500 ml-2">Average max: 220 - {formData.age || 'age'}</span>
             </label>
             <input
               type="number"
@@ -334,7 +325,7 @@ const HeartHealthForm: React.FC = () => {
               name="maxHeartRate"
               min="60"
               max="220"
-              placeholder={t('heart.maxHeartRatePlaceholder')}
+              placeholder="Enter your maximum heart rate"
               value={formData.maxHeartRate}
               onChange={handleChange}
               className="w-full border p-2 rounded-md"
@@ -344,7 +335,7 @@ const HeartHealthForm: React.FC = () => {
           {/* Exercise Angina */}
           <div className="form-group mb-6">
             <label className="block text-gray-700 font-semibold mb-2">
-              {t('heart.exerciseAngina')} *
+              Exercise-Induced Angina? *
             </label>
             <div className="flex space-x-4">
               <div
@@ -353,7 +344,7 @@ const HeartHealthForm: React.FC = () => {
                 }`}
                 onClick={() => setFormData(prev => ({ ...prev, exerciseAngina: 'yes' }))}
               >
-                {t('heart.yes')}
+                Yes
               </div>
               <div
                 className={`cursor-pointer px-4 py-2 border rounded-md ${
@@ -361,7 +352,7 @@ const HeartHealthForm: React.FC = () => {
                 }`}
                 onClick={() => setFormData(prev => ({ ...prev, exerciseAngina: 'no' }))}
               >
-                {t('heart.no')}
+                No
               </div>
             </div>
           </div>
@@ -369,7 +360,7 @@ const HeartHealthForm: React.FC = () => {
           {/* Oldpeak (ST Depression) */}
           <div className="form-group mb-6">
             <label htmlFor="oldpeak" className="block text-gray-700 mb-1">
-              {t('heart.oldpeak')} (ST Depression)
+              ST Depression (Oldpeak)
             </label>
             <input
               type="number"
@@ -378,7 +369,7 @@ const HeartHealthForm: React.FC = () => {
               step="0.1"
               min="0"
               max="10"
-              placeholder={t('heart.oldpeakPlaceholder')}
+              placeholder="Enter ST depression value"
               value={formData.oldpeak}
               onChange={handleChange}
               className="w-full border p-2 rounded-md"
@@ -388,7 +379,7 @@ const HeartHealthForm: React.FC = () => {
           {/* ST Slope */}
           <div className="form-group mb-6">
             <label htmlFor="stSlope" className="block text-gray-700 mb-1">
-              {t('heart.stSlope')} *
+              ST Slope *
             </label>
             <select
               id="stSlope"
@@ -398,10 +389,10 @@ const HeartHealthForm: React.FC = () => {
               onChange={handleChange}
               className="w-full border p-2 rounded-md"
             >
-              <option value="">{t('heart.selectStSlope')}</option>
-              <option value="upsloping">{t('heart.upsloping')}</option>
-              <option value="flat">{t('heart.flat')}</option>
-              <option value="downsloping">{t('heart.downsloping')}</option>
+              <option value="">Select ST slope</option>
+              <option value="upsloping">Upsloping</option>
+              <option value="flat">Flat</option>
+              <option value="downsloping">Downsloping</option>
             </select>
           </div>
 
@@ -412,7 +403,7 @@ const HeartHealthForm: React.FC = () => {
               className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-md transition-colors"
             >
               <HeartPulse className="inline-block mr-2" />
-              {t('heart.assessButton')}
+              Assess Heart Health
             </button>
           </div>
         </form>
@@ -420,38 +411,35 @@ const HeartHealthForm: React.FC = () => {
 
       {/* Results Section */}
       {showDiagnosis && diagnosis && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+        <div
           className="results-card bg-white p-6 rounded-xl shadow-md max-w-6xl mx-auto mb-12"
         >
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            {t('heart.resultsTitle')}
+            Assessment Results
           </h2>
           
           {/* Risk Score Display */}
           <div className="risk-score-display mb-4">
             <p className="text-gray-700">
-              {t('heart.riskScore')}: <strong>{riskScore}</strong>
+              Risk Score: <strong>{riskScore}</strong>
             </p>
           </div>
           
           {/* Risk Level */}
           <div className={`p-4 rounded-lg mb-6 ${
-            riskLevel?.includes(t('heart.highRisk')) ? 'bg-red-100 border-l-4 border-red-500' :
-            riskLevel?.includes(t('heart.moderateRisk')) ? 'bg-yellow-100 border-l-4 border-yellow-500' :
-            riskLevel?.includes(t('heart.lowRisk')) ? 'bg-green-100 border-l-4 border-green-500' :
+            riskLevel?.includes('High Risk') ? 'bg-red-100 border-l-4 border-red-500' :
+            riskLevel?.includes('Moderate Risk') ? 'bg-yellow-100 border-l-4 border-yellow-500' :
+            riskLevel?.includes('Low Risk') ? 'bg-green-100 border-l-4 border-green-500' :
             'bg-blue-100 border-l-4 border-blue-500'
           }`}>
-            <h3 className="text-lg font-semibold mb-2">{t('heart.riskAssessmentTitle')}</h3>
+            <h3 className="text-lg font-semibold mb-2">Risk Assessment</h3>
             <p className="text-gray-800">{diagnosis}</p>
           </div>
 
           {/* Recommendations */}
           <div className="recommendations">
             <h3 className="text-xl font-semibold text-gray-800 mb-3">
-              {t('heart.recommendationsTitle')}
+              Recommendations
             </h3>
             <ul className="space-y-3">
               {getRecommendations().map((rec, index) => (
@@ -466,48 +454,48 @@ const HeartHealthForm: React.FC = () => {
           {/* Next Steps */}
           <div className="next-steps mt-8">
             <h3 className="text-xl font-semibold text-gray-800 mb-3">
-              {t('heart.nextStepsTitle')}
+              Next Steps
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {riskLevel?.includes(t('heart.highRisk')) && (
+              {riskLevel?.includes('High Risk') && (
                 <>
                   <div className="bg-red-50 p-4 rounded-lg">
                     <h4 className="font-bold text-red-800 mb-2">
-                      {t('heart.urgentCare')}
+                      Urgent Care
                     </h4>
                     <p className="text-gray-700">
-                      {t('heart.urgentCareText')}
+                      Schedule an appointment with a cardiologist within the next 1-2 weeks.
                     </p>
                   </div>
                   <div className="bg-red-50 p-4 rounded-lg">
                     <h4 className="font-bold text-red-800 mb-2">
-                      {t('heart.emergencySigns')}
+                      Warning Signs
                     </h4>
                     <p className="text-gray-700">
-                      {t('heart.emergencySignsText')}
+                      Seek immediate medical attention if you experience chest pain, shortness of breath, or dizziness.
                     </p>
                   </div>
                 </>
               )}
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h4 className="font-bold text-blue-800 mb-2">
-                  {t('heart.followUp')}
+                  Follow-Up
                 </h4>
                 <p className="text-gray-700">
-                  {t('heart.followUpText')}
+                  Schedule a follow-up assessment in 3-6 months to track your progress.
                 </p>
               </div>
               <div className="bg-green-50 p-4 rounded-lg">
                 <h4 className="font-bold text-green-800 mb-2">
-                  {t('heart.lifestyleChanges')}
+                  Lifestyle Changes
                 </h4>
                 <p className="text-gray-700">
-                  {t('heart.lifestyleChangesText')}
+                  Implement dietary changes and increase physical activity gradually.
                 </p>
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       )}
     </div>
   );

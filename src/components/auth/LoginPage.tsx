@@ -8,19 +8,20 @@ import { LogIn, Mail, Lock, AlertCircle, Facebook } from 'lucide-react';
 const LoginPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { login, loginWithGoogle, loginWithFacebook, loading, error, clearError } = useAuth();
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    remember: false
+    remember: false,
   });
 
   const isRTL = i18n.language === 'ar';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : value,
     }));
     clearError();
   };
@@ -29,13 +30,13 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     try {
       await login(formData.email, formData.password, formData.remember);
-    } catch (err) {
-      // Error is handled by the auth context
+    } catch {
+      // Error handled in context
     }
   };
 
   return (
-    <div className="max-w-md mx-auto mt-8"  dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className="max-w-md mx-auto mt-8" dir={isRTL ? 'rtl' : 'ltr'}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -129,7 +130,7 @@ const LoginPage: React.FC = () => {
             {loading ? (
               <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             ) : (
               <LogIn className={`w-5 h-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />

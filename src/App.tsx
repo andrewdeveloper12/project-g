@@ -27,7 +27,7 @@ import UserProfile from './components/auth/UserProfile';
 import UserHistory from './components/auth/UserHistory';
 import CommunityPage from './pages/CommunityPage';
 import ToastContainer from './ToastContainer';
-
+import { UserProvider } from './components/Context/UserContext.context'; // Correct import for UserContext
 
 const AppContent: React.FC = () => {
   const { i18n } = useTranslation();
@@ -62,8 +62,6 @@ const AppContent: React.FC = () => {
             <Route path="/nutrition-checker" element={<NutritionChecker />} />
             <Route path="/statistics" element={<StatisticsPage />} />
             <Route path="/toastContainer" element={<ToastContainer />} />
-
-            
           </Route>
         </Routes>
       </main>
@@ -77,7 +75,9 @@ const App: React.FC = () => {
     <Router>
       <AuthProvider>
         <ResultsProvider>
-          <AppContent />
+          <UserProvider> {/* Wrap everything inside UserProvider */}
+            <AppContent />
+          </UserProvider>
         </ResultsProvider>
       </AuthProvider>
     </Router>
