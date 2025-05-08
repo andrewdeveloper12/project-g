@@ -26,6 +26,8 @@ import ContactUs from './pages/ContactUs';
 import UserProfile from './components/auth/UserProfile';
 import UserHistory from './components/auth/UserHistory';
 import CommunityPage from './pages/CommunityPage';
+import ToastContainer from './ToastContainer';
+
 
 const AppContent: React.FC = () => {
   const { i18n } = useTranslation();
@@ -59,6 +61,9 @@ const AppContent: React.FC = () => {
             <Route path="/chat" element={<ChatInterface />} />
             <Route path="/nutrition-checker" element={<NutritionChecker />} />
             <Route path="/statistics" element={<StatisticsPage />} />
+            <Route path="/toastContainer" element={<ToastContainer />} />
+
+            
           </Route>
         </Routes>
       </main>
