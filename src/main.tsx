@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
 import i18next from 'i18next';
-import App from './App.tsx';
+import App from '../src/App';
 import './index.css';
 import { translations } from './i18n/translations';
 

@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Upload } from 'lucide-react';
 
+import  HeroImage  from '../../../public/hero.jpg.jpg'
+
 const HeroBanner: React.FC = () => {
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === 'ar';
@@ -12,16 +14,15 @@ const HeroBanner: React.FC = () => {
     <div
       className="relative h-screen bg-cover bg-center overflow-hidden"
       style={{
-        backgroundImage: `url('https://images.unsplash.com/photo-1506617420156-8e4536971650?q=80&w=2023&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')`, // ✅ نفس اسم الصورة الأصلي
+        backgroundImage: `url(${HeroImage})` // ✅ نفس اسم الصورة الأصلي
       }}
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       <div
-        className={`absolute inset-0 ${
-          isRTL
+        className={`absolute inset-0 ${isRTL
             ? 'bg-gradient-to-l from-black/60 to-transparent'
             : 'bg-gradient-to-r from-black/60 to-transparent'
-        }`}
+          }`}
       />
 
       <div className="relative h-full pt-20 items-center">
