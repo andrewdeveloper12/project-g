@@ -1,165 +1,111 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../Context/AuthContext';
-import { User, Mail, Lock, Loader2 } from 'lucide-react';
-
-interface FormData {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-}
+import { UserPlus, Mail, Lock, User, AlertCircle } from 'lucide-react';
 
 const RegisterPage: React.FC = () => {
-  const { t } = useTranslation();
-  const { isAuthenticated } = useAuth();
+  const { t, i18n } = useTranslation();
+  const { register, loading, error, clearError } = useAuth();
   const navigate = useNavigate();
-
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    confirmPassword: '',
+    confirmPassword: '' // <-- Changed to match RegisterData interface
   });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/');
-    }
-  }, [isAuthenticated, navigate]);
+  const [errorMessage, setErrorMessage] = useState('');
+  const isRTL = i18n.language === 'ar';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-
-    if (apiError) {
-      setApiError(null);
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    clearError();
+    setErrorMessage(''); // Reset error message on change
   };
 
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) newErrors.name = t('register.errors.nameRequired');
-    if (!formData.email.trim()) newErrors.email = t('register.errors.emailRequired');
-    if (!formData.password) newErrors.password = t('register.errors.passwordRequired');
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = t('register.errors.passwordsDontMatch');
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
 
-    setLoading(true);
-    setApiError(null);
+    // Simple password match validation
+    if (formData.password !== formData.confirmPassword) {
+      setErrorMessage(t('auth.passwordMismatch')); // Custom message for mismatched passwords
+      return;
+    }
 
     try {
-      const response = await fetch('https://carelens.up.railway.app/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-          confirmPassword: formData.confirmPassword
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
-      }
-
-      // Handle successful registration
-      // You might want to redirect to a verification page or login page
+      await register(formData);
       navigate('/verify-email', { state: { email: formData.email } });
-    } catch (error) {
-      setApiError(error instanceof Error ? error.message : 'An unknown error occurred');
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      // Error is handled by the auth context
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-teal-50 p-4">
-      <div className="w-full max-w-md p-14 space-y-15 bg-white rounded-xl shadow-lg">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900">{t('register.title')}</h1>
-          <p className="text-sm text-gray-600">
-            {t('register.subtitle')}{' '}
-            <Link
-              to="/login"
-              className="font-medium text-teal-600 hover:text-teal-500 transition-colors"
-            >
-              {t('register.signIn')}
-            </Link>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8" dir={isRTL ? 'rtl' : 'ltr'}>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-md"
+      >
+        <div className="text-center">
+          <UserPlus className="mx-auto h-12 w-12 text-teal-600" />
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            {t('auth.registerTitle')}
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            {t('auth.registerSubtitle')}
           </p>
         </div>
 
-        {(apiError || Object.keys(errors).length > 0) && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
-            <div className="flex flex-col space-y-1">
-              {apiError && <p className="text-sm text-red-700">{apiError}</p>}
-              {Object.entries(errors).map(([key, message]) => (
-                <p key={key} className="text-sm text-red-700">
-                  {message}
-                </p>
-              ))}
-            </div>
+        {error && (
+          <div className={`p-4 rounded-md bg-red-50 text-red-700 flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <AlertCircle className={`h-5 w-5 ${isRTL ? 'ml-3' : 'mr-3'}`} />
+            <span>{error}</span>
           </div>
         )}
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            {/* Name Field */}
+        {errorMessage && (
+          <div className={`p-4 rounded-md bg-red-50 text-red-700 flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <AlertCircle className={`h-5 w-5 ${isRTL ? 'ml-3' : 'mr-3'}`} />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="rounded-md shadow-sm space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                {t('register.name')}
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                {t('auth.name')}
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <div className="mt-1 relative">
+                <div className={`absolute inset-y-0 ${isRTL ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
                   <User className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
                   id="name"
                   name="name"
                   type="text"
-                  autoComplete="name"
+                  required
                   value={formData.name}
                   onChange={handleChange}
-                  required
-                  placeholder={t('register.name')}
-                  className={`block w-full pl-10 pr-3 py-2 border ${
-                    errors.name ? 'border-red-300' : 'border-gray-300'
-                  } rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm`}
+                  className={`appearance-none block w-full ${isRTL ? 'pr-10' : 'pl-10'} px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500`}
+                  placeholder={t('auth.namePlaceholder')}
                 />
               </div>
             </div>
 
-            {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                {t('register.email')}
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                {t('auth.email')}
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <div className="mt-1 relative">
+                <div className={`absolute inset-y-0 ${isRTL ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
                   <Mail className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
@@ -167,24 +113,21 @@ const RegisterPage: React.FC = () => {
                   name="email"
                   type="email"
                   autoComplete="email"
+                  required
                   value={formData.email}
                   onChange={handleChange}
-                  required
-                  placeholder={t('register.email')}
-                  className={`block w-full pl-10 pr-3 py-2 border ${
-                    errors.email ? 'border-red-300' : 'border-gray-300'
-                  } rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm`}
+                  className={`appearance-none block w-full ${isRTL ? 'pr-10' : 'pl-10'} px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500`}
+                  placeholder={t('auth.emailPlaceholder')}
                 />
               </div>
             </div>
 
-            {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                {t('register.password')}
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                {t('auth.password')}
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <div className="mt-1 relative">
+                <div className={`absolute inset-y-0 ${isRTL ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
                   <Lock className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
@@ -192,38 +135,33 @@ const RegisterPage: React.FC = () => {
                   name="password"
                   type="password"
                   autoComplete="new-password"
+                  required
                   value={formData.password}
                   onChange={handleChange}
-                  required
-                  placeholder={t('register.password')}
-                  className={`block w-full pl-10 pr-3 py-2 border ${
-                    errors.password ? 'border-red-300' : 'border-gray-300'
-                  } rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm`}
+                  className={`appearance-none block w-full ${isRTL ? 'pr-10' : 'pl-10'} px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500`}
+                  placeholder={t('auth.passwordPlaceholder')}
                 />
               </div>
             </div>
 
-            {/* Confirm Password Field */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                {t('register.confirmPassword')}
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                {t('auth.confirmPassword')}
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <div className="mt-1 relative">
+                <div className={`absolute inset-y-0 ${isRTL ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
                   <Lock className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
                   id="confirmPassword"
-                  name="confirmPassword"
+                  name="confirmPassword" // <-- Updated to match RegisterData
                   type="password"
                   autoComplete="new-password"
+                  required
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  required
-                  placeholder={t('register.confirmPassword')}
-                  className={`block w-full pl-10 pr-3 py-2 border ${
-                    errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-                  } rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm`}
+                  className={`appearance-none block w-full ${isRTL ? 'pr-10' : 'pl-10'} px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500`}
+                  placeholder={t('auth.confirmPasswordPlaceholder')}
                 />
               </div>
             </div>
@@ -233,23 +171,32 @@ const RegisterPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors disabled:opacity-75"
+              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 ${
+                loading ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
             >
               {loading ? (
-                <>
-                  <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                  {t('register.creatingAccount')}
-                </>
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
               ) : (
-                <>
-                  <User className="mr-2 h-4 w-4" />
-                  {t('register.createAccount')}
-                </>
+                <UserPlus className={`h-5 w-5 ${isRTL ? 'ml-2' : 'mr-2'}`} />
               )}
+              {t('auth.registerButton')}
             </button>
           </div>
         </form>
-      </div>
+
+        <div className="text-center">
+          <p className={`text-sm text-gray-600 ${isRTL ? 'flex flex-row-reverse justify-center' : ''}`}>
+            {t('auth.alreadyHaveAccount')}{' '}
+            <Link to="/login" className="font-medium text-teal-600 hover:text-teal-500">
+              {t('auth.loginInstead')}
+            </Link>
+          </p>
+        </div>
+      </motion.div>
     </div>
   );
 };
