@@ -1,0 +1,3 @@
+[submodule "project-g"]
+    path = project-g
+    url = https://github.com/andrewdeveloper12/project-g.git
