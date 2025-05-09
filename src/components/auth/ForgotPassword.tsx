@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import {  Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Mail, Loader2 } from 'lucide-react';
+import axios from 'axios';
 
 const ForgotPasswordPage: React.FC = () => {
   const { t } = useTranslation();
@@ -17,15 +18,17 @@ const ForgotPasswordPage: React.FC = () => {
     setMessage('');
 
     try {
-      // هنا سيتم استدعاء API حقيقي لإرسال بريد إعادة التعيين
-      // هذا مثال لمحاكاة الخادم
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Call the CareLens API endpoint for the forgot password request
+      const response = await axios.post(
+        'https://carelens.up.railway.app/api/auth/forgot-password', // Use correct endpoint for forgot-password
+        { email }
+      );
       
-      // في الواقع، هنا سيتم إرسال الطلب إلى الخادم الخاص بك
-      // await api.post('/auth/forgot-password', { email });
-      
-      setMessage(t('forgotPassword.successMessage'));
-    } catch (err) {
+      // Simulate a successful response
+      if (response.status === 200) {
+        setMessage(t('forgotPassword.successMessage'));
+      }
+    } catch (err: any) {
       setError(t('forgotPassword.errorMessage'));
     } finally {
       setLoading(false);
