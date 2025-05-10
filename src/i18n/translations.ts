@@ -165,11 +165,16 @@ export const translations = {
       confirmPassword: "Confirm Password",
       updateSuccess: "Profile updated successfully!",
       updateError: "Failed to update profile. Please try again.",
+      "editHealthData": "Edit Health Data",
+     "healthDataSummary": "Health Data Summary",
+     "bloodSugar": "Blood Sugar",
+    "oxygen": "Oxygen Level",
       personalInfo: "Personal Information",
       history: "History",
       edit: "Edit",
       save: "Save",
       accountCreated: "Account Created",
+      
       role: {
         admin: "Administrator",
         editor: "Editor",
@@ -962,6 +967,10 @@ export const translations = {
       edit: "تعديل",
       save: "حفظ",
       accountCreated: "تاريخ إنشاء الحساب",
+       "editHealthData": "تعديل البيانات الصحية",
+    "healthDataSummary": "ملخص البيانات الصحية",
+    "bloodSugar": "سكر الدم",
+    "oxygen": "مستوى الأكسجين",
       role: {
         admin: "مدير",
         editor: "محرر",
