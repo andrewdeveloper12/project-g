@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ChevronRight, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 
 interface Author {
   name: string;
@@ -19,6 +18,7 @@ interface Article {
   date: string;
   featured?: boolean;
   tags: string[];
+  googleSearchQuery: string; // Added new field
 }
 
 interface ArticleCardProps {
@@ -35,10 +35,15 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, delay = 0 }) => {
     author,
     date,
     featured,
+    googleSearchQuery
   } = article;
 
   const { t } = useTranslation();
-  const navigate = useNavigate();
+
+  const handleReadMore = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(googleSearchQuery)}`, '_blank');
+  };
 
   return (
     <motion.div
@@ -49,7 +54,6 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, delay = 0 }) => {
       className={`bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300 flex flex-col cursor-pointer ${
         featured ? 'border-l-4 border-green-500' : 'border'
       }`}
-      onClick={() => navigate(`/articles/${article.id}`)}
     >
       <div className="relative w-full h-52 overflow-hidden">
         <img
@@ -95,10 +99,7 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ article, delay = 0 }) => {
 
         <div
           className="flex items-center text-green-600 text-sm font-medium mt-4 hover:underline cursor-pointer"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate('/resources');
-          }}
+          onClick={handleReadMore}
         >
           <span>{t('read_more')}</span>
           <ChevronRight className="w-4 h-4 ml-1" />
@@ -124,6 +125,7 @@ const ArticlesSection: React.FC = () => {
       },
       date: t('articles.dates.1'),
       tags: ['nutrition', 'health', 'diet'],
+      googleSearchQuery: "latest research articles about heart health and nutrition"
     },
     {
       id: '2',
@@ -137,6 +139,7 @@ const ArticlesSection: React.FC = () => {
       },
       date: t('articles.dates.2'),
       tags: ['diabetes', 'lifestyle', 'health'],
+      googleSearchQuery: "scientific articles about diabetes management and lifestyle changes"
     },
     {
       id: '3',
@@ -151,21 +154,26 @@ const ArticlesSection: React.FC = () => {
       date: t('articles.dates.3'),
       featured: true,
       tags: ['diabetes', 'diet', 'nutrition'],
+      googleSearchQuery: "recent medical research about anemia treatment and prevention"
     },
   ];
+
+  const handleViewAll = () => {
+    window.open("https://www.google.com/search?q=medical+articles+about+heart+disease+diabetes+anemia+hypertension", "_blank");
+  };
 
   return (
     <section className="py-16 bg-gray-50">
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900">{t('articles.title')}</h2>
-          <a
-            href="/resources"
+          <button
+            onClick={handleViewAll}
             className="flex items-center text-green-600 hover:text-green-700 font-medium group"
           >
             {t('articles.viewAll')}
             <ArrowRight size={18} className="ml-1 transition-transform duration-300 group-hover:translate-x-1" />
-          </a>
+          </button>
         </div>
 
         <motion.div

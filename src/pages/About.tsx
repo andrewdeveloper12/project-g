@@ -7,8 +7,39 @@ import { Link } from 'react-router-dom';
 const About: React.FC = () => {
   const { t } = useTranslation();
 
+  const egyptianScientists = [
+    {
+      id: 1,
+      name: 'Dr. Magdi Yacoub',
+      title: t('about.cardiacSurgeon'),
+      bio: t('about.magdiBio'),
+      image: 'https://www.alainelkanninterviews.com/wp-content/uploads/2016/11/Headshot-Yacoub-390360.jpg',
+      searchQuery: 'Magdi+Yacoub+site:wikipedia.org'
+    },
+    {
+      id: 2,
+      name: 'Dr. Hatem El-Gabaly',
+      title: t('about.radiologyPioneer'),
+      bio: t('about.hatemBio'),
+      image: 'https://cdn0.scrvt.com/7b8dc61d55f0deedb776692474194f7c/c27f0cd11bdd3467/99164f88db10/v/7828775e6c06/executive_summit_2022_hatem_elgabaly.jpg',
+      searchQuery: 'Hatem+El-Gabaly+site:wikipedia.org'
+    },
+    {
+      id: 3,
+      name: 'Dr. Ahmed Zewail',
+      title: t('about.nobelLaureate'),
+      bio: t('about.zewailBio'),
+      image: 'https://knowwhois.com/upload/images/MzE2MTMwNT-father-of-femtochemistry-who-is-ahmed-zewail.jpg',
+      searchQuery: 'Ahmed+Zewail+site:wikipedia.org'
+    }
+  ];
+
+  const openBio = (query: string) => {
+    window.open(`https://www.google.com/search?q=${query}`, '_blank');
+  };
+
   return (
-    <div className="max-w-6xl mx-auto mt-8">
+    <div className="max-w-6xl mx-auto mt-8 px-4">
       {/* Hero Section */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
@@ -85,7 +116,7 @@ const About: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Our Team */}
+      {/* Egyptian Medical Pioneers */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -93,22 +124,36 @@ const About: React.FC = () => {
         className="mb-16"
       >
         <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-          {t('about.teamTitle')}
+          {t('about.egyptianPioneersTitle')}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[1, 2, 3].map((member) => (
-            <div key={member} className="bg-white p-6 rounded-xl shadow-md text-center">
+          {egyptianScientists.map((scientist) => (
+            <motion.div
+              key={scientist.id}
+              whileHover={{ y: -5 }}
+              className="bg-white p-6 rounded-xl shadow-md text-center cursor-pointer transition-all hover:shadow-lg"
+              onClick={() => openBio(scientist.searchQuery)}
+            >
               <img 
-                src={`https://randomuser.me/api/portraits/${member % 2 === 0 ? 'women' : 'men'}/${member + 10}.jpg`}
-                alt={t(`about.teamMember${member}Name`)}
-                className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                src={scientist.image}
+                alt={scientist.name}
+                className="w-32 h-32 rounded-full mx-auto mb-4 object-cover border-4 border-teal-100"
               />
               <h3 className="text-xl font-semibold text-gray-800 mb-1">
-                {t(`about.teamMember${member}Name`)}
+                {scientist.name}
               </h3>
-              <p className="text-teal-500 mb-3">{t(`about.teamMember${member}Title`)}</p>
-              <p className="text-gray-600">{t(`about.teamMember${member}Bio`)}</p>
-            </div>
+              <p className="text-teal-500 mb-3">{scientist.title}</p>
+              <p className="text-gray-600 mb-4">{scientist.bio}</p>
+              <button 
+                className="text-sm text-green-600 hover:text-green-800 font-medium"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openBio(scientist.searchQuery);
+                }}
+              >
+                {t('about.viewFullBio')} →
+              </button>
+            </motion.div>
           ))}
         </div>
       </motion.div>
@@ -121,7 +166,7 @@ const About: React.FC = () => {
         className="bg-gradient-to-r from-green-500 to-green-300 text-white p-8 rounded-xl mb-16"
       >
         <h2 className="text-3xl text-white font-bold mb-8 text-center">{t('about.valuesTitle')}</h2>
-        <div className="grid grid-cols-1 text-white  md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 text-white md:grid-cols-2 gap-6">
           {[1, 2, 3, 4].map((value) => (
             <div key={value} className="bg-white/10 p-6 text-white rounded-lg backdrop-blur-sm">
               <h3 className="text-xl text-white font-semibold mb-2">{t(`about.value${value}Title`)}</h3>
@@ -133,24 +178,24 @@ const About: React.FC = () => {
 
       {/* Contact */}
       <motion.div
-  initial={{ opacity: 0, y: 20 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ duration: 0.5, delay: 1 }}
-  className="bg-white p-8 rounded-xl shadow-md text-center mb-8"
->
-  <h2 className="text-3xl font-bold text-gray-800 mb-4">
-    {t('about.contactTitle')}
-  </h2>
-  <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-6">
-    {t('about.contactText')}
-  </p>
-  <Link 
-    to="/contactus" 
-    className="px-6 py-3 bg-green-500 text-white rounded-full hover:bg-green-600 transition shadow-md inline-block"
-  >
-    {t('about.contactButton')}
-  </Link>
-</motion.div>
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 1 }}
+        className="bg-white p-8 rounded-xl shadow-md text-center mb-8"
+      >
+        <h2 className="text-3xl font-bold text-gray-800 mb-4">
+          {t('about.contactTitle')}
+        </h2>
+        <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-6">
+          {t('about.contactText')}
+        </p>
+        <Link 
+          to="/contactus" 
+          className="px-6 py-3 bg-green-500 text-white rounded-full hover:bg-green-600 transition shadow-md inline-block"
+        >
+          {t('about.contactButton')}
+        </Link>
+      </motion.div>
     </div>
   );
 };

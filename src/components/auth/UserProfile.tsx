@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Clock } from 'lucide-react';
+import { User, Clock, HeartPulse, Activity, Droplets, Wind, Edit } from 'lucide-react';
 import { useAuth } from '../Context/AuthContext';
 import ProfileTab from '../auth/ProfileTab';
 import HealthHistoryTab from './HealthHistoryTab';
@@ -16,10 +16,33 @@ const mockUser = {
   role: 'patient'
 };
 
+// Mock health data
+const mockHealthData = {
+  normal: {
+    bloodPressure: '120/80',
+    heartRate: '72',
+    bloodSugar: '90',
+    oxygen: '98%'
+  },
+  elevated: {
+    bloodPressure: '135/85',
+    heartRate: '85',
+    bloodSugar: '110',
+    oxygen: '96%'
+  },
+  critical: {
+    bloodPressure: '150/95',
+    heartRate: '95',
+    bloodSugar: '140',
+    oxygen: '92%'
+  }
+};
+
 const UserProfile: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
+  const [healthStatus, setHealthStatus] = useState<'normal' | 'elevated' | 'critical'>('normal');
   const isRTL = i18n.language === 'ar';
   
   // Set mock user for development (remove in production)
@@ -37,10 +60,23 @@ const UserProfile: React.FC = () => {
   }, [isAuthenticated, i18n]);
 
   const displayedUser = user || mockUser;
+  const currentHealthData = mockHealthData[healthStatus];
 
   const tabVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.3 } }
+  };
+
+  const healthMetricVariants = {
+    hidden: { opacity: 0, scale: 0.8 },
+    visible: { opacity: 1, scale: 1, transition: { duration: 0.5 } }
+  };
+
+  const handleHealthStatusChange = () => {
+    const statuses: Array<'normal' | 'elevated' | 'critical'> = ['normal', 'elevated', 'critical'];
+    const currentIndex = statuses.indexOf(healthStatus);
+    const nextIndex = (currentIndex + 1) % statuses.length;
+    setHealthStatus(statuses[nextIndex]);
   };
 
   return (
@@ -104,8 +140,8 @@ const UserProfile: React.FC = () => {
           onClick={() => setActiveTab('profile')}
           className={`flex items-center space-x-2 border-b-2 px-4 py-2 ${
             activeTab === 'profile' 
-              ? 'border-teal-500 text-black' 
-              : 'border-transparent text-gray-500 hover:text-black-700'
+              ? 'border-teal-500 text-gray-700' 
+              : 'border-transparent text-gray-500 hover:text-gray-700'
           } ${isRTL ? 'flex-row-reverse space-x-reverse' : ''}`}
         >
           <User size={18} />
@@ -115,14 +151,102 @@ const UserProfile: React.FC = () => {
           onClick={() => setActiveTab('history')}
           className={`flex items-center space-x-2 border-b-2 px-4 py-2 ${
             activeTab === 'history' 
-              ? 'border-teal-500 text-black-600' 
-              : 'border-transparent text-black hover:text-black-700'
+              ? 'border-teal-500 text-black' 
+              : 'border-transparent text-gray-500 hover:text-black'
           } ${isRTL ? 'flex-row-reverse space-x-reverse' : ''}`}
         >
           <Clock size={18} />
-          <span>{t('profile.history')}</span>
+          <span className="text-black">{t('profile.history')}</span>
         </button>
       </div>
+
+      {/* Health Data Summary Section */}
+      {activeTab === 'history' && (
+        <div className="mb-6">
+          <div className="flex flex-wrap gap-4 mb-4">
+            <button
+              onClick={handleHealthStatusChange}
+              className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white py-2 px-4 rounded-lg transition-colors"
+            >
+              <HeartPulse size={18} />
+              <span>{t('profile.healthDataSummary')}</span>
+            </button>
+            
+            <button
+              onClick={() => console.log('Edit health data')}
+              className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg transition-colors"
+            >
+              <Edit size={18} />
+              <span>{t('profile.editHealthData')}</span>
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <motion.div
+              variants={healthMetricVariants}
+              initial="hidden"
+              animate="visible"
+              className="bg-white p-4 rounded-lg shadow-sm border border-gray-100"
+            >
+              <div className="flex items-center gap-2 text-gray-600 mb-2">
+                <Activity size={16} />
+                <span className="text-sm">{t('profile.bloodPressure')}</span>
+              </div>
+              <div className="text-2xl font-bold">
+                {currentHealthData.bloodPressure}
+                <span className="text-sm text-gray-500 ml-1">mmHg</span>
+              </div>
+            </motion.div>
+
+            <motion.div
+              variants={healthMetricVariants}
+              initial="hidden"
+              animate="visible"
+              className="bg-white p-4 rounded-lg shadow-sm border border-gray-100"
+            >
+              <div className="flex items-center gap-2 text-gray-600 mb-2">
+                <HeartPulse size={16} />
+                <span className="text-sm">{t('profile.heartRate')}</span>
+              </div>
+              <div className="text-2xl font-bold">
+                {currentHealthData.heartRate}
+                <span className="text-sm text-gray-500 ml-1">bpm</span>
+              </div>
+            </motion.div>
+
+            <motion.div
+              variants={healthMetricVariants}
+              initial="hidden"
+              animate="visible"
+              className="bg-white p-4 rounded-lg shadow-sm border border-gray-100"
+            >
+              <div className="flex items-center gap-2 text-gray-600 mb-2">
+                <Droplets size={16} />
+                <span className="text-sm">{t('profile.bloodSugar')}</span>
+              </div>
+              <div className="text-2xl font-bold">
+                {currentHealthData.bloodSugar}
+                <span className="text-sm text-gray-500 ml-1">mg/dL</span>
+              </div>
+            </motion.div>
+
+            <motion.div
+              variants={healthMetricVariants}
+              initial="hidden"
+              animate="visible"
+              className="bg-white p-4 rounded-lg shadow-sm border border-gray-100"
+            >
+              <div className="flex items-center gap-2 text-gray-600 mb-2">
+                <Wind size={16} />
+                <span className="text-sm">{t('profile.oxygen')}</span>
+              </div>
+              <div className="text-2xl font-bold">
+                {currentHealthData.oxygen}
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         <motion.div

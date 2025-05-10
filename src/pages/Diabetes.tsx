@@ -1,8 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Droplets, HeartPulse } from 'lucide-react';
+import { Droplets, HeartPulse, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useResults } from '../components/Context/ResultsContext';
+import { useAuth } from '../components/Context/AuthContext';
+import { toast } from 'react-toastify';
+
+interface DiabetesRecord {
+  _id?: string;
+  patientId: string;
+  measurements: {
+    age: number;
+    gender: string;
+    bmi: number;
+    highBloodPressure: boolean;
+    fastingBloodSugar: number;
+    hba1c: number;
+    smoking: boolean;
+    familyHistory: boolean;
+  };
+  diagnosis: string;
+  type?: string;
+  createdAt?: string;
+}
 
 interface NutritionalValues {
   calories: string;
@@ -31,6 +51,11 @@ interface FormData {
 const DiabetesAssessment: React.FC = () => {
   const { t } = useTranslation();
   const { addDiabetesResult } = useResults();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState<DiabetesRecord[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
   
   const [gender, setGender] = useState<string>('');
   const [formData, setFormData] = useState<FormData>({
@@ -41,6 +66,16 @@ const DiabetesAssessment: React.FC = () => {
     hba1c: '',
     smoking: '',
     familyHistory: ''
+  });
+  const [formErrors, setFormErrors] = useState({
+    gender: false,
+    age: false,
+    bmi: false,
+    highBP: false,
+    fbs: false,
+    hba1c: false,
+    smoking: false,
+    familyHistory: false
   });
 
   const [diagnosis, setDiagnosis] = useState<string | null>(null);
@@ -59,13 +94,66 @@ const DiabetesAssessment: React.FC = () => {
     sodium: t('diabetes.nutritionValues.sodium')
   };
 
+  // Fetch user history on component mount
+  useEffect(() => {
+    if (user?.id) {
+      fetchHistory();
+    }
+  }, [user]);
+
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/diabetes/${user?.id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch history');
+      }
+      
+      const data = await response.json();
+      setHistory(data);
+    } catch (error) {
+      toast.error(t('diabetes.fetchError'));
+      console.error('Error fetching diabetes history:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGenderSelect = (selected: string): void => {
     setGender(selected);
+    setFormErrors(prev => ({ ...prev, gender: false }));
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    setFormErrors(prev => ({ ...prev, [name]: false }));
+  };
+
+  const handleOptionSelect = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormErrors(prev => ({ ...prev, [name]: false }));
+  };
+
+  const validateForm = (): boolean => {
+    const errors = {
+      gender: !gender,
+      age: !formData.age,
+      bmi: !formData.bmi,
+      highBP: !formData.highBP,
+      fbs: !formData.fbs,
+      hba1c: !formData.hba1c,
+      smoking: !formData.smoking,
+      familyHistory: !formData.familyHistory
+    };
+    
+    setFormErrors(errors);
+    return !Object.values(errors).some(error => error);
   };
 
   const determineCondition = (): {
@@ -73,8 +161,8 @@ const DiabetesAssessment: React.FC = () => {
     severity: string;
     type: string;
   } => {
-    const fbs = parseFloat(formData.fbs) || 0;
-    const hba1c = parseFloat(formData.hba1c) || 0;
+    const fbs = parseFloat(formData.fbs);
+    const hba1c = parseFloat(formData.hba1c);
     
     let hasCondition = false;
     let severity = '';
@@ -101,30 +189,70 @@ const DiabetesAssessment: React.FC = () => {
     return { hasCondition, severity, type };
   };
 
-  const handleSubmit = (e: React.FormEvent): void => {
+  const saveRecord = async (recordData: Omit<DiabetesRecord, '_id' | 'createdAt'>) => {
+    try {
+      setLoading(true);
+      const endpoint = isEditing && currentRecordId 
+        ? `/api/diabetes/${currentRecordId}`
+        : '/api/diabetes';
+      
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const response = await fetch(endpoint, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(recordData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save record');
+      }
+      
+      const data = await response.json();
+      toast.success(t(isEditing ? 'diabetes.updateSuccess' : 'diabetes.saveSuccess'));
+      
+      // Refresh history
+      await fetchHistory();
+      return data;
+    } catch (error) {
+      toast.error(t('diabetes.saveError'));
+      console.error('Error saving diabetes record:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     
-    if (!gender || !formData.age || !formData.fbs || !formData.hba1c) {
-      alert(t('diabetes.requiredFields'));
+    // Validate all fields are filled
+    if (!validateForm()) {
+      toast.error(t('diabetes.allFieldsRequired'));
       return;
     }
 
     const { hasCondition, severity, type } = determineCondition();
     
+    let diagnosisText = '';
     if (hasCondition) {
-      setDiagnosis(t('diabetes.diagnosis.positive', { 
+      diagnosisText = t('diabetes.diagnosis.positive', { 
         severity: t(`diabetes.severity.${severity}`), 
         type: t(`diabetes.type.${type}`) 
-      }));
+      });
       setDiabetesType(type);
     } else if (type === 'prediabetes') {
-      setDiagnosis(t('diabetes.diagnosis.prediabetes'));
+      diagnosisText = t('diabetes.diagnosis.prediabetes');
       setDiabetesType(type);
     } else {
-      setDiagnosis(t('diabetes.diagnosis.negative'));
+      diagnosisText = t('diabetes.diagnosis.negative');
       setDiabetesType(null);
     }
     
+    setDiagnosis(diagnosisText);
     setNutrition(recommendedNutrition);
     setValidation({
       [t('diabetes.validation.lowSugar')]: true,
@@ -134,22 +262,85 @@ const DiabetesAssessment: React.FC = () => {
     });
     setShowDiagnosis(true);
     
-    // Save to the results context
-    addDiabetesResult({
-      fbs: parseFloat(formData.fbs) || 0,
-      hba1c: parseFloat(formData.hba1c) || 0,
-      diagnosis: hasCondition 
-        ? t('diabetes.diagnosis.positive', { 
-            severity: t(`diabetes.severity.${severity}`), 
-            type: t(`diabetes.type.${type}`) 
-          })
-        : type === 'prediabetes'
-          ? t('diabetes.diagnosis.prediabetes')
-          : t('diabetes.diagnosis.negative'),
-      type: type,
-      age: parseInt(formData.age) || 0,
-      gender: gender
+    // Prepare record data for API
+    const recordData: Omit<DiabetesRecord, '_id' | 'createdAt'> = {
+      patientId: user?.id || '',
+      measurements: {
+        age: parseInt(formData.age),
+        gender: gender,
+        bmi: parseFloat(formData.bmi),
+        highBloodPressure: formData.highBP === 'yes',
+        fastingBloodSugar: parseFloat(formData.fbs),
+        hba1c: parseFloat(formData.hba1c),
+        smoking: formData.smoking === 'yes',
+        familyHistory: formData.familyHistory === 'yes'
+      },
+      diagnosis: diagnosisText,
+      type: type
+    };
+
+    try {
+      // Save to API
+      await saveRecord(recordData);
+      
+      // Save to local context
+      addDiabetesResult({
+        fbs: parseFloat(formData.fbs),
+        hba1c: parseFloat(formData.hba1c),
+        diagnosis: diagnosisText,
+        type: type,
+        age: parseInt(formData.age),
+        gender: gender
+      });
+    } catch (error) {
+      console.error('Error handling diabetes submission:', error);
+    }
+  };
+
+  const loadRecordForEditing = (record: DiabetesRecord) => {
+    setGender(record.measurements.gender);
+    setFormData({
+      age: record.measurements.age.toString(),
+      bmi: record.measurements.bmi.toString(),
+      highBP: record.measurements.highBloodPressure ? 'yes' : 'no',
+      fbs: record.measurements.fastingBloodSugar.toString(),
+      hba1c: record.measurements.hba1c.toString(),
+      smoking: record.measurements.smoking ? 'yes' : 'no',
+      familyHistory: record.measurements.familyHistory ? 'yes' : 'no'
     });
+    setDiagnosis(record.diagnosis);
+    setDiabetesType(record.type || null);
+    setShowDiagnosis(true);
+    setIsEditing(true);
+    setCurrentRecordId(record._id || null);
+  };
+
+  const resetForm = () => {
+    setGender('');
+    setFormData({
+      age: '',
+      bmi: '',
+      highBP: '',
+      fbs: '',
+      hba1c: '',
+      smoking: '',
+      familyHistory: ''
+    });
+    setFormErrors({
+      gender: false,
+      age: false,
+      bmi: false,
+      highBP: false,
+      fbs: false,
+      hba1c: false,
+      smoking: false,
+      familyHistory: false
+    });
+    setDiagnosis(null);
+    setShowDiagnosis(false);
+    setDiabetesType(null);
+    setIsEditing(false);
+    setCurrentRecordId(null);
   };
 
   const getRecommendations = (): string[] => {
@@ -194,14 +385,14 @@ const DiabetesAssessment: React.FC = () => {
       <div className="bg-white p-6 rounded-xl shadow-md max-w-6xl mx-auto mb-12">
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
-            <label className="block text-gray-700 font-semibold mb-2">
+            <label className="block text-black font-semibold mb-2">
               {t('diabetes.gender')} *
             </label>
             <div className="flex space-x-4">
               <button
                 type="button"
-                className={`cursor-pointer px-4 py-2 border rounded-md text-black ${
-                  gender === 'male' ? 'bg-blue-500 text-black ' : 'bg-gray-100'
+                className={`cursor-pointer text-black px-4 py-2 border rounded-md ${
+                  gender === 'male' ? 'bg-blue-500 text-gray-700' : formErrors.gender ? 'bg-red-100 border-red-500' : 'bg-black-100'
                 }`}
                 onClick={() => handleGenderSelect('male')}
               >
@@ -209,14 +400,17 @@ const DiabetesAssessment: React.FC = () => {
               </button>
               <button
                 type="button"
-                className={`cursor-pointer px-4 py-2 border rounded-md text-black ${
-                  gender === 'female' ? 'bg-pink-500 text-black' : 'bg-gray-100'
+                className={`cursor-pointer text-black px-4 py-2 border rounded-md ${
+                  gender === 'female' ? 'bg-pink-500 text-white' : formErrors.gender ? 'bg-red-100 border-red-500' : 'bg-gray-100'
                 }`}
                 onClick={() => handleGenderSelect('female')}
               >
                 {t('diabetes.female')}
               </button>
             </div>
+            {formErrors.gender && (
+              <p className="text-red-500 text-sm mt-1">{t('diabetes.genderRequired')}</p>
+            )}
           </div>
 
           <div className="mb-6">
@@ -233,13 +427,18 @@ const DiabetesAssessment: React.FC = () => {
               placeholder={t('diabetes.agePlaceholder')}
               value={formData.age}
               onChange={handleChange}
-              className="w-full border p-2 rounded-md"
+              className={`w-full border p-2 rounded-md ${
+                formErrors.age ? 'border-red-500 bg-red-50' : ''
+              }`}
             />
+            {formErrors.age && (
+              <p className="text-red-500 text-sm mt-1">{t('diabetes.ageRequired')}</p>
+            )}
           </div>
 
           <div className="mb-6">
             <label htmlFor="bmi" className="block text-gray-700 mb-1">
-              {t('diabetes.bmi')}
+              {t('diabetes.bmi')} *
             </label>
             <input
               type="number"
@@ -248,12 +447,18 @@ const DiabetesAssessment: React.FC = () => {
               step="0.1"
               min="0"
               max="50"
+              required
               placeholder={t('diabetes.bmiPlaceholder')}
               value={formData.bmi}
               onChange={handleChange}
-              className="w-full border p-2 rounded-md"
+              className={`w-full border p-2 rounded-md ${
+                formErrors.bmi ? 'border-red-500 bg-red-50' : ''
+              }`}
             />
             <p className="text-xs text-gray-500 mt-1">{t('diabetes.bmiReference')}</p>
+            {formErrors.bmi && (
+              <p className="text-red-500 text-sm mt-1">{t('diabetes.bmiRequired')}</p>
+            )}
           </div>
 
           <div className="mb-6">
@@ -271,9 +476,14 @@ const DiabetesAssessment: React.FC = () => {
               placeholder={t('diabetes.fbsPlaceholder')}
               value={formData.fbs}
               onChange={handleChange}
-              className="w-full border p-2 rounded-md"
+              className={`w-full border p-2 rounded-md ${
+                formErrors.fbs ? 'border-red-500 bg-red-50' : ''
+              }`}
             />
             <p className="text-xs text-gray-500 mt-1">{t('diabetes.fbsReference')}</p>
+            {formErrors.fbs && (
+              <p className="text-red-500 text-sm mt-1">{t('diabetes.fbsRequired')}</p>
+            )}
           </div>
 
           <div className="mb-6">
@@ -291,98 +501,190 @@ const DiabetesAssessment: React.FC = () => {
               placeholder={t('diabetes.hba1cPlaceholder')}
               value={formData.hba1c}
               onChange={handleChange}
-              className="w-full border p-2 rounded-md"
+              className={`w-full border p-2 rounded-md ${
+                formErrors.hba1c ? 'border-red-500 bg-red-50' : ''
+              }`}
             />
             <p className="text-xs text-gray-500 mt-1">{t('diabetes.hba1cReference')}</p>
+            {formErrors.hba1c && (
+              <p className="text-red-500 text-sm mt-1">{t('diabetes.hba1cRequired')}</p>
+            )}
           </div>
 
           <div className="mb-6">
             <label className="block text-gray-700 font-semibold mb-2">
-              {t('diabetes.highBP')}
+              {t('diabetes.highBP')} *
             </label>
             <div className="flex space-x-4">
               <button
                 type="button"
-                className={`cursor-pointer px-4 py-2 border rounded-md text-black ${
-                  formData.highBP === 'yes' ? 'bg-green-500 text-black' : 'bg-gray-100'
+                className={`cursor-pointer text-black px-4 py-2 border rounded-md ${
+                  formData.highBP === 'yes' ? 'bg-green-500 text-black' : formErrors.highBP ? 'bg-red-100 border-red-500' : 'bg-gray-100'
                 }`}
-                onClick={() => setFormData({...formData, highBP: 'yes'})}
+                onClick={() => handleOptionSelect('highBP', 'yes')}
               >
                 {t('diabetes.yes')}
               </button>
               <button
                 type="button"
-                className={`cursor-pointer px-4 py-2 border rounded-md text-black ${
-                  formData.highBP === 'no' ? 'bg-red-500 text-black' : 'bg-gray-100'
+                className={`cursor-pointer text-black px-4 py-2 border rounded-md ${
+                  formData.highBP === 'no' ? 'bg-red-500 text-white' : formErrors.highBP ? 'bg-red-100 border-red-500' : 'bg-gray-100'
                 }`}
-                onClick={() => setFormData({...formData, highBP: 'no'})}
+                onClick={() => handleOptionSelect('highBP', 'no')}
               >
                 {t('diabetes.no')}
               </button>
             </div>
+            {formErrors.highBP && (
+              <p className="text-red-500 text-sm mt-1">{t('diabetes.highBPRequired')}</p>
+            )}
           </div>
 
           <div className="mb-6">
             <label className="block text-gray-700 font-semibold mb-2">
-              {t('diabetes.smoking')}
+              {t('diabetes.smoking')} *
             </label>
             <div className="flex space-x-4">
               <button
                 type="button"
-                className={`cursor-pointer px-4 py-2 border rounded-md text-black ${
-                  formData.smoking === 'yes' ? 'bg-green-500 text-black' : 'bg-gray-100'
+                className={`cursor-pointer text-black px-4 py-2 border rounded-md ${
+                  formData.smoking === 'yes' ? 'bg-green-500 text-white' : formErrors.smoking ? 'bg-red-100 border-red-500' : 'bg-gray-100'
                 }`}
-                onClick={() => setFormData({...formData, smoking: 'yes'})}
+                onClick={() => handleOptionSelect('smoking', 'yes')}
               >
                 {t('diabetes.yes')}
               </button>
               <button
                 type="button"
-                className={`cursor-pointer px-4 py-2 border rounded-md text-black ${
-                  formData.smoking === 'no' ? 'bg-red-500 text-black' : 'bg-gray-100'
+                className={`cursor-pointer text-black px-4 py-2 border rounded-md ${
+                  formData.smoking === 'no' ? 'bg-red-500 text-white' : formErrors.smoking ? 'bg-red-100 border-red-500' : 'bg-gray-100'
                 }`}
-                onClick={() => setFormData({...formData, smoking: 'no'})}
+                onClick={() => handleOptionSelect('smoking', 'no')}
               >
                 {t('diabetes.no')}
               </button>
             </div>
+            {formErrors.smoking && (
+              <p className="text-red-500 text-sm mt-1">{t('diabetes.smokingRequired')}</p>
+            )}
           </div>
 
           <div className="mb-6">
             <label className="block text-gray-700 font-semibold mb-2">
-              {t('diabetes.familyHistory')}
+              {t('diabetes.familyHistory')} *
             </label>
             <div className="flex space-x-4">
               <button
                 type="button"
-                className={`cursor-pointer px-4 py-2 border rounded-md text-black ${
-                  formData.familyHistory === 'yes' ? 'bg-green-500 text-black' : 'bg-gray-100'
+                className={`cursor-pointer text-black px-4 py-2 border rounded-md ${
+                  formData.familyHistory === 'yes' ? 'bg-green-500 text-white' : formErrors.familyHistory ? 'bg-red-100 border-red-500' : 'bg-gray-100'
                 }`}
-                onClick={() => setFormData({...formData, familyHistory: 'yes'})}
+                onClick={() => handleOptionSelect('familyHistory', 'yes')}
               >
                 {t('diabetes.yes')}
               </button>
               <button
                 type="button"
-                className={`cursor-pointer px-4 py-2 border rounded-md text-black ${
-                  formData.familyHistory === 'no' ? 'bg-red-500 text-white' : 'bg-gray-100'
+                className={`cursor-pointer text-black px-4 py-2 border rounded-md ${
+                  formData.familyHistory === 'no' ? 'bg-red-500 text-white' : formErrors.familyHistory ? 'bg-red-100 border-red-500' : 'bg-gray-100'
                 }`}
-                onClick={() => setFormData({...formData, familyHistory: 'no'})}
+                onClick={() => handleOptionSelect('familyHistory', 'no')}
               >
                 {t('diabetes.no')}
               </button>
             </div>
+            {formErrors.familyHistory && (
+              <p className="text-red-500 text-sm mt-1">{t('diabetes.familyHistoryRequired')}</p>
+            )}
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 transition flex items-center justify-center gap-2"
-          >
-            <HeartPulse className="w-5 h-5" />
-            {t('diabetes.submit')}
-          </button>
+          <div className="flex space-x-4">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 transition flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {t(isEditing ? 'diabetes.updating' : 'diabetes.submitting')}
+                </>
+              ) : (
+                <>
+                  <HeartPulse className="w-5 h-5" />
+                  {t(isEditing ? 'diabetes.update' : 'diabetes.submit')}
+                </>
+              )}
+            </button>
+            
+            {isEditing && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="flex-1 bg-gray-500 text-white py-2 rounded-md hover:bg-gray-600 transition"
+              >
+                {t('diabetes.cancel')}
+              </button>
+            )}
+          </div>
         </form>
       </div>
+
+      {/* History Section */}
+      {history.length > 0 && (
+        <div className="history-card bg-white p-6 rounded-xl shadow-md max-w-6xl mx-auto mb-12">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">{t('diabetes.historyTitle')}</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('diabetes.date')}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('diabetes.gender')}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('diabetes.age')}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('diabetes.diagnosis')}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {t('diabetes.actions')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {history.map((record) => (
+                  <tr key={record._id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(record.createdAt || '').toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {record.measurements.gender}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {record.measurements.age}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {record.diagnosis}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <button
+                        onClick={() => loadRecordForEditing(record)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                      >
+                        {t('diabetes.edit')}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {showDiagnosis && (
         <motion.div

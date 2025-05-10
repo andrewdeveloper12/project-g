@@ -1,9 +1,38 @@
-import React, { useState } from 'react';
-import { Heart, HeartPulse } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Heart, HeartPulse, Loader2 } from 'lucide-react';
+import { useAuth } from '../components/Context/AuthContext';
 import { useResults } from '../components/Context/ResultsContext';
+import { toast } from 'react-toastify';
+
+interface HeartRecord {
+  _id?: string;
+  patientId: string;
+  measurements: {
+    chestPainType: string;
+    age: number;
+    gender: string;
+    restingBP: number;
+    cholesterol: number;
+    fastingBloodSugar: boolean;
+    restingECG: string;
+    maxHeartRate: number;
+    exerciseAngina: boolean;
+    oldpeak: number;
+    stSlope: string;
+  };
+  riskScore: number;
+  riskLevel: string;
+  createdAt?: string;
+}
 
 const HeartHealthForm: React.FC = () => {
+  const { user } = useAuth();
   const { addHeartResult } = useResults();
+  
+  const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState<HeartRecord[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     age: '',
@@ -18,26 +47,97 @@ const HeartHealthForm: React.FC = () => {
     oldpeak: '',
     stSlope: ''
   });
+  
+  const [formErrors, setFormErrors] = useState({
+    age: false,
+    gender: false,
+    chestPainType: false,
+    bloodPressure: false,
+    cholesterol: false,
+    bloodSugar: false,
+    ecgResults: false,
+    maxHeartRate: false,
+    exerciseAngina: false,
+    oldpeak: false,
+    stSlope: false
+  });
+
   const [diagnosis, setDiagnosis] = useState<string | null>(null);
   const [showDiagnosis, setShowDiagnosis] = useState(false);
   const [riskLevel, setRiskLevel] = useState<string | null>(null);
   const [riskScore, setRiskScore] = useState<number>(0);
 
+  // Fetch user history on component mount
+  useEffect(() => {
+    if (user?.id) {
+      fetchHistory();
+    }
+  }, [user]);
+
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/heart/${user?.id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch history');
+      }
+      
+      const data = await response.json();
+      setHistory(data);
+    } catch (error) {
+      toast.error('Failed to load your heart health history');
+      console.error('Error fetching heart history:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    setFormErrors(prev => ({ ...prev, [name]: false }));
   };
 
   const handleGenderSelect = (selected: string) => {
     setFormData(prev => ({ ...prev, gender: selected }));
+    setFormErrors(prev => ({ ...prev, gender: false }));
+  };
+
+  const handleOptionSelect = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormErrors(prev => ({ ...prev, [name]: false }));
+  };
+
+  const validateForm = (): boolean => {
+    const errors = {
+      age: !formData.age,
+      gender: !formData.gender,
+      chestPainType: !formData.chestPainType,
+      bloodPressure: !formData.bloodPressure,
+      cholesterol: !formData.cholesterol,
+      bloodSugar: !formData.bloodSugar,
+      ecgResults: !formData.ecgResults,
+      maxHeartRate: !formData.maxHeartRate,
+      exerciseAngina: !formData.exerciseAngina,
+      oldpeak: !formData.oldpeak,
+      stSlope: !formData.stSlope
+    };
+    
+    setFormErrors(errors);
+    return !Object.values(errors).some(error => error);
   };
 
   const assessHeartHealth = () => {
-    const age = parseInt(formData.age) || 0;
-    const bp = parseInt(formData.bloodPressure) || 0;
-    const cholesterol = parseInt(formData.cholesterol) || 0;
-    const maxHeartRate = parseInt(formData.maxHeartRate) || 0;
-    const oldpeak = parseFloat(formData.oldpeak) || 0;
+    const age = parseInt(formData.age);
+    const bp = parseInt(formData.bloodPressure);
+    const cholesterol = parseInt(formData.cholesterol);
+    const maxHeartRate = parseInt(formData.maxHeartRate);
+    const oldpeak = parseFloat(formData.oldpeak);
     
     let calculatedRiskScore = 0;
     
@@ -98,11 +198,49 @@ const HeartHealthForm: React.FC = () => {
     };
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const saveRecord = async (recordData: Omit<HeartRecord, '_id' | 'createdAt'>) => {
+    try {
+      setLoading(true);
+      const endpoint = isEditing && currentRecordId 
+        ? `/api/heart/${currentRecordId}`
+        : '/api/heart';
+      
+      const method = isEditing ? 'PUT' : 'POST';
+      
+      const response = await fetch(endpoint, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(recordData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save record');
+      }
+      
+      const data = await response.json();
+      toast.success(isEditing ? 'Record updated successfully' : 'Assessment saved successfully');
+      
+      // Refresh history
+      await fetchHistory();
+      return data;
+    } catch (error) {
+      toast.error('Failed to save your assessment');
+      console.error('Error saving heart record:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.age || !formData.gender || !formData.bloodPressure || !formData.cholesterol) {
-      alert('Please fill in all required fields marked with *');
+    // Validate all fields are filled
+    if (!validateForm()) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -113,24 +251,120 @@ const HeartHealthForm: React.FC = () => {
     setRiskLevel(determinedRiskLevel);
     setShowDiagnosis(true);
     
-    addHeartResult({
+    // Prepare record data for API
+    const recordData: Omit<HeartRecord, '_id' | 'createdAt'> = {
+      patientId: user?.id || '',
+      measurements: {
+        chestPainType: formData.chestPainType === 'typical-angina' ? 'TA' :
+                      formData.chestPainType === 'atypical-angina' ? 'ATA' :
+                      formData.chestPainType === 'non-anginal' ? 'NAP' : 'ASY',
+        age: parseInt(formData.age),
+        gender: formData.gender === 'male' ? 'M' : 'F',
+        restingBP: parseInt(formData.bloodPressure),
+        cholesterol: parseInt(formData.cholesterol),
+        fastingBloodSugar: formData.bloodSugar === 'yes',
+        restingECG: formData.ecgResults === 'normal' ? 'Normal' :
+                   formData.ecgResults === 'st-t-abnormality' ? 'ST' : 'LVH',
+        maxHeartRate: parseInt(formData.maxHeartRate),
+        exerciseAngina: formData.exerciseAngina === 'yes',
+        oldpeak: parseFloat(formData.oldpeak),
+        stSlope: formData.stSlope === 'upsloping' ? 'Up' :
+                 formData.stSlope === 'flat' ? 'Flat' : 'Down'
+      },
       riskScore: calculatedRiskScore,
-      riskLevel: determinedRiskLevel,
-      age: parseInt(formData.age) || 0,
-      gender: formData.gender,
-      factors: {
-        bloodPressure: parseInt(formData.bloodPressure) || undefined,
-        cholesterol: parseInt(formData.cholesterol) || undefined,
-        bloodSugar: formData.bloodSugar || undefined,
-        maxHeartRate: parseInt(formData.maxHeartRate) || undefined
-      }
+      riskLevel: determinedRiskLevel
+    };
+
+    try {
+      // Save to API
+      await saveRecord(recordData);
+      
+      // Save to local context
+      addHeartResult({
+        riskScore: calculatedRiskScore,
+        riskLevel: determinedRiskLevel,
+        age: parseInt(formData.age),
+        gender: formData.gender,
+        factors: {
+          bloodPressure: parseInt(formData.bloodPressure),
+          cholesterol: parseInt(formData.cholesterol),
+          bloodSugar: formData.bloodSugar,
+          maxHeartRate: parseInt(formData.maxHeartRate)
+        }
+      });
+    } catch (error) {
+      console.error('Error handling heart assessment submission:', error);
+    }
+  };
+
+  const loadRecordForEditing = (record: HeartRecord) => {
+    setFormData({
+      age: record.measurements.age.toString(),
+      gender: record.measurements.gender === 'M' ? 'male' : 'female',
+      chestPainType: record.measurements.chestPainType === 'TA' ? 'typical-angina' :
+                    record.measurements.chestPainType === 'ATA' ? 'atypical-angina' :
+                    record.measurements.chestPainType === 'NAP' ? 'non-anginal' : 'asymptomatic',
+      bloodPressure: record.measurements.restingBP.toString(),
+      cholesterol: record.measurements.cholesterol.toString(),
+      bloodSugar: record.measurements.fastingBloodSugar ? 'yes' : 'no',
+      ecgResults: record.measurements.restingECG === 'Normal' ? 'normal' :
+                 record.measurements.restingECG === 'ST' ? 'st-t-abnormality' : 'abnormal',
+      maxHeartRate: record.measurements.maxHeartRate.toString(),
+      exerciseAngina: record.measurements.exerciseAngina ? 'yes' : 'no',
+      oldpeak: record.measurements.oldpeak.toString(),
+      stSlope: record.measurements.stSlope === 'Up' ? 'upsloping' :
+               record.measurements.stSlope === 'Flat' ? 'flat' : 'downsloping'
     });
+    setDiagnosis(`Based on your inputs, your heart health risk level is: ${record.riskLevel} (Score: ${record.riskScore}/15)`);
+    setRiskLevel(record.riskLevel);
+    setRiskScore(record.riskScore);
+    setShowDiagnosis(true);
+    setIsEditing(true);
+    setCurrentRecordId(record._id || null);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      age: '',
+      gender: '',
+      chestPainType: '',
+      bloodPressure: '',
+      cholesterol: '',
+      bloodSugar: '',
+      ecgResults: '',
+      maxHeartRate: '',
+      exerciseAngina: '',
+      oldpeak: '',
+      stSlope: ''
+    });
+    setFormErrors({
+      age: false,
+      gender: false,
+      chestPainType: false,
+      bloodPressure: false,
+      cholesterol: false,
+      bloodSugar: false,
+      ecgResults: false,
+      maxHeartRate: false,
+      exerciseAngina: false,
+      oldpeak: false,
+      stSlope: false
+    });
+    setDiagnosis(null);
+    setShowDiagnosis(false);
+    setRiskLevel(null);
+    setRiskScore(0);
+    setIsEditing(false);
+    setCurrentRecordId(null);
   };
 
   const getRecommendations = () => {
     if (!riskLevel) return ['Maintain a balanced lifestyle with regular check-ups'];
     
-    const recommendations = ['Maintain a balanced diet rich in fruits, vegetables, and whole grains', 'Engage in regular physical activity (at least 150 minutes per week)'];
+    const recommendations = [
+      'Maintain a balanced diet rich in fruits, vegetables, and whole grains',
+      'Engage in regular physical activity (at least 150 minutes per week)'
+    ];
     
     if (riskLevel.includes('High Risk')) {
       recommendations.push('Consult with a cardiologist promptly');
@@ -149,9 +383,7 @@ const HeartHealthForm: React.FC = () => {
 
   return (
     <div className="heart-container px-4 py-7">
-      <div
-        className="heart-header mb-12 text-center"
-      >
+      <div className="heart-header mb-12 text-center">
         <Heart className="w-16 h-16 text-red-500 mx-auto mb-2" />
         <h1 className="text-4xl font-bold text-gray-800">
           Heart Health Assessment
@@ -163,7 +395,7 @@ const HeartHealthForm: React.FC = () => {
 
       <div className="form-card bg-white p-6 rounded-xl shadow-md max-w-6xl mx-auto mb-12">
         <form onSubmit={handleSubmit}>
-          {/* Age */}
+          {/* Age - Required */}
           <div className="form-group mb-6">
             <label htmlFor="age" className="block text-gray-700 mb-1">
               Age *
@@ -178,11 +410,16 @@ const HeartHealthForm: React.FC = () => {
               placeholder="Enter your age (18-120)"
               value={formData.age}
               onChange={handleChange}
-              className="w-full border p-2 rounded-md"
+              className={`w-full border p-2 rounded-md ${
+                formErrors.age ? 'border-red-500 bg-red-50' : ''
+              }`}
             />
+            {formErrors.age && (
+              <p className="text-red-500 text-sm mt-1">Age is required</p>
+            )}
           </div>
 
-          {/* Gender */}
+          {/* Gender - Required */}
           <div className="form-group mb-6">
             <label className="block text-gray-700 font-semibold mb-2">
               Gender *
@@ -190,7 +427,7 @@ const HeartHealthForm: React.FC = () => {
             <div className="flex space-x-4">
               <div
                 className={`cursor-pointer px-4 py-2 border rounded-md ${
-                  formData.gender === 'male' ? 'bg-blue-500 text-white' : 'bg-gray-100'
+                  formData.gender === 'male' ? 'bg-blue-500 text-white' : formErrors.gender ? 'bg-red-100 border-red-500' : 'bg-gray-100'
                 }`}
                 onClick={() => handleGenderSelect('male')}
               >
@@ -198,16 +435,19 @@ const HeartHealthForm: React.FC = () => {
               </div>
               <div
                 className={`cursor-pointer px-4 py-2 border rounded-md ${
-                  formData.gender === 'female' ? 'bg-pink-500 text-white' : 'bg-gray-100'
+                  formData.gender === 'female' ? 'bg-pink-500 text-white' : formErrors.gender ? 'bg-red-100 border-red-500' : 'bg-gray-100'
                 }`}
                 onClick={() => handleGenderSelect('female')}
               >
                 Female
               </div>
             </div>
+            {formErrors.gender && (
+              <p className="text-red-500 text-sm mt-1">Gender is required</p>
+            )}
           </div>
 
-          {/* Chest Pain Type */}
+          {/* Chest Pain Type - Required */}
           <div className="form-group mb-6">
             <label htmlFor="chestPainType" className="block text-gray-700 mb-1">
               Chest Pain Type *
@@ -218,7 +458,9 @@ const HeartHealthForm: React.FC = () => {
               required
               value={formData.chestPainType}
               onChange={handleChange}
-              className="w-full border p-2 rounded-md"
+              className={`w-full border p-2 rounded-md ${
+                formErrors.chestPainType ? 'border-red-500 bg-red-50' : ''
+              }`}
             >
               <option value="">Select chest pain type</option>
               <option value="typical-angina">Typical Angina</option>
@@ -226,9 +468,12 @@ const HeartHealthForm: React.FC = () => {
               <option value="non-anginal">Non-Anginal Pain</option>
               <option value="asymptomatic">Asymptomatic</option>
             </select>
+            {formErrors.chestPainType && (
+              <p className="text-red-500 text-sm mt-1">Chest pain type is required</p>
+            )}
           </div>
 
-          {/* Blood Pressure */}
+          {/* Blood Pressure - Required */}
           <div className="form-group mb-6">
             <label htmlFor="bloodPressure" className="block text-gray-700 mb-1">
               Blood Pressure (mm Hg) *
@@ -244,11 +489,16 @@ const HeartHealthForm: React.FC = () => {
               placeholder="Enter your systolic blood pressure"
               value={formData.bloodPressure}
               onChange={handleChange}
-              className="w-full border p-2 rounded-md"
+              className={`w-full border p-2 rounded-md ${
+                formErrors.bloodPressure ? 'border-red-500 bg-red-50' : ''
+              }`}
             />
+            {formErrors.bloodPressure && (
+              <p className="text-red-500 text-sm mt-1">Blood pressure is required</p>
+            )}
           </div>
 
-          {/* Cholesterol */}
+          {/* Cholesterol - Required */}
           <div className="form-group mb-6">
             <label htmlFor="cholesterol" className="block text-gray-700 mb-1">
               Cholesterol (mg/dL) *
@@ -264,11 +514,16 @@ const HeartHealthForm: React.FC = () => {
               placeholder="Enter your cholesterol level"
               value={formData.cholesterol}
               onChange={handleChange}
-              className="w-full border p-2 rounded-md"
+              className={`w-full border p-2 rounded-md ${
+                formErrors.cholesterol ? 'border-red-500 bg-red-50' : ''
+              }`}
             />
+            {formErrors.cholesterol && (
+              <p className="text-red-500 text-sm mt-1">Cholesterol is required</p>
+            )}
           </div>
 
-          {/* Blood Sugar */}
+          {/* Blood Sugar - Required */}
           <div className="form-group mb-6">
             <label className="block text-gray-700 font-semibold mb-2">
               Fasting Blood Sugar &gt; 120 mg/dl? *
@@ -276,24 +531,27 @@ const HeartHealthForm: React.FC = () => {
             <div className="flex space-x-4">
               <div
                 className={`cursor-pointer px-4 py-2 border rounded-md ${
-                  formData.bloodSugar === 'yes' ? 'bg-green-500 text-white' : 'bg-gray-100'
+                  formData.bloodSugar === 'yes' ? 'bg-green-500 text-white' : formErrors.bloodSugar ? 'bg-red-100 border-red-500' : 'bg-gray-100'
                 }`}
-                onClick={() => setFormData(prev => ({ ...prev, bloodSugar: 'yes' }))}
+                onClick={() => handleOptionSelect('bloodSugar', 'yes')}
               >
                 Yes
               </div>
               <div
                 className={`cursor-pointer px-4 py-2 border rounded-md ${
-                  formData.bloodSugar === 'no' ? 'bg-red-500 text-white' : 'bg-gray-100'
+                  formData.bloodSugar === 'no' ? 'bg-red-500 text-white' : formErrors.bloodSugar ? 'bg-red-100 border-red-500' : 'bg-gray-100'
                 }`}
-                onClick={() => setFormData(prev => ({ ...prev, bloodSugar: 'no' }))}
+                onClick={() => handleOptionSelect('bloodSugar', 'no')}
               >
                 No
               </div>
             </div>
+            {formErrors.bloodSugar && (
+              <p className="text-red-500 text-sm mt-1">Blood sugar status is required</p>
+            )}
           </div>
 
-          {/* ECG Results */}
+          {/* ECG Results - Required */}
           <div className="form-group mb-6">
             <label htmlFor="ecgResults" className="block text-gray-700 mb-1">
               ECG Results *
@@ -304,19 +562,24 @@ const HeartHealthForm: React.FC = () => {
               required
               value={formData.ecgResults}
               onChange={handleChange}
-              className="w-full border p-2 rounded-md"
+              className={`w-full border p-2 rounded-md ${
+                formErrors.ecgResults ? 'border-red-500 bg-red-50' : ''
+              }`}
             >
               <option value="">Select ECG result</option>
               <option value="normal">Normal</option>
               <option value="st-t-abnormality">ST-T Wave Abnormality</option>
               <option value="abnormal">Left Ventricular Hypertrophy</option>
             </select>
+            {formErrors.ecgResults && (
+              <p className="text-red-500 text-sm mt-1">ECG results are required</p>
+            )}
           </div>
 
-          {/* Max Heart Rate */}
+          {/* Max Heart Rate - Required */}
           <div className="form-group mb-6">
             <label htmlFor="maxHeartRate" className="block text-gray-700 mb-1">
-              Max Heart Rate (bpm)
+              Max Heart Rate (bpm) *
               <span className="text-sm text-gray-500 ml-2">Average max: 220 - {formData.age || 'age'}</span>
             </label>
             <input
@@ -325,14 +588,20 @@ const HeartHealthForm: React.FC = () => {
               name="maxHeartRate"
               min="60"
               max="220"
+              required
               placeholder="Enter your maximum heart rate"
               value={formData.maxHeartRate}
               onChange={handleChange}
-              className="w-full border p-2 rounded-md"
+              className={`w-full border p-2 rounded-md ${
+                formErrors.maxHeartRate ? 'border-red-500 bg-red-50' : ''
+              }`}
             />
+            {formErrors.maxHeartRate && (
+              <p className="text-red-500 text-sm mt-1">Max heart rate is required</p>
+            )}
           </div>
 
-          {/* Exercise Angina */}
+          {/* Exercise Angina - Required */}
           <div className="form-group mb-6">
             <label className="block text-gray-700 font-semibold mb-2">
               Exercise-Induced Angina? *
@@ -340,27 +609,30 @@ const HeartHealthForm: React.FC = () => {
             <div className="flex space-x-4">
               <div
                 className={`cursor-pointer px-4 py-2 border rounded-md ${
-                  formData.exerciseAngina === 'yes' ? 'bg-green-500 text-white' : 'bg-gray-100'
+                  formData.exerciseAngina === 'yes' ? 'bg-green-500 text-white' : formErrors.exerciseAngina ? 'bg-red-100 border-red-500' : 'bg-gray-100'
                 }`}
-                onClick={() => setFormData(prev => ({ ...prev, exerciseAngina: 'yes' }))}
+                onClick={() => handleOptionSelect('exerciseAngina', 'yes')}
               >
                 Yes
               </div>
               <div
                 className={`cursor-pointer px-4 py-2 border rounded-md ${
-                  formData.exerciseAngina === 'no' ? 'bg-red-500 text-white' : 'bg-gray-100'
+                  formData.exerciseAngina === 'no' ? 'bg-red-500 text-white' : formErrors.exerciseAngina ? 'bg-red-100 border-red-500' : 'bg-gray-100'
                 }`}
-                onClick={() => setFormData(prev => ({ ...prev, exerciseAngina: 'no' }))}
+                onClick={() => handleOptionSelect('exerciseAngina', 'no')}
               >
                 No
               </div>
             </div>
+            {formErrors.exerciseAngina && (
+              <p className="text-red-500 text-sm mt-1">Exercise angina status is required</p>
+            )}
           </div>
 
-          {/* Oldpeak (ST Depression) */}
+          {/* Oldpeak (ST Depression) - Required */}
           <div className="form-group mb-6">
             <label htmlFor="oldpeak" className="block text-gray-700 mb-1">
-              ST Depression (Oldpeak)
+              ST Depression (Oldpeak) *
             </label>
             <input
               type="number"
@@ -369,14 +641,20 @@ const HeartHealthForm: React.FC = () => {
               step="0.1"
               min="0"
               max="10"
+              required
               placeholder="Enter ST depression value"
               value={formData.oldpeak}
               onChange={handleChange}
-              className="w-full border p-2 rounded-md"
+              className={`w-full border p-2 rounded-md ${
+                formErrors.oldpeak ? 'border-red-500 bg-red-50' : ''
+              }`}
             />
+            {formErrors.oldpeak && (
+              <p className="text-red-500 text-sm mt-1">ST depression value is required</p>
+            )}
           </div>
 
-          {/* ST Slope */}
+          {/* ST Slope - Required */}
           <div className="form-group mb-6">
             <label htmlFor="stSlope" className="block text-gray-700 mb-1">
               ST Slope *
@@ -387,33 +665,118 @@ const HeartHealthForm: React.FC = () => {
               required
               value={formData.stSlope}
               onChange={handleChange}
-              className="w-full border p-2 rounded-md"
+              className={`w-full border p-2 rounded-md ${
+                formErrors.stSlope ? 'border-red-500 bg-red-50' : ''
+              }`}
             >
               <option value="">Select ST slope</option>
               <option value="upsloping">Upsloping</option>
               <option value="flat">Flat</option>
               <option value="downsloping">Downsloping</option>
             </select>
+            {formErrors.stSlope && (
+              <p className="text-red-500 text-sm mt-1">ST slope is required</p>
+            )}
           </div>
 
-          {/* Submit Button */}
-          <div className="form-group mt-8">
+          {/* Submit & Reset Buttons */}
+          <div className="flex space-x-4">
             <button
               type="submit"
-              className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-md transition-colors"
+              disabled={loading}
+              className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-md transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <HeartPulse className="inline-block mr-2" />
-              Assess Heart Health
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {isEditing ? 'Updating...' : 'Assessing...'}
+                </>
+              ) : (
+                <>
+                  <HeartPulse className="w-5 h-5" />
+                  {isEditing ? 'Update Assessment' : 'Assess Heart Health'}
+                </>
+              )}
             </button>
+            
+            {isEditing && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="flex-1 bg-gray-500 text-white py-2 rounded-md hover:bg-gray-600 transition"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </form>
       </div>
 
+      {/* History Section */}
+      {history.length > 0 && (
+        <div className="history-card bg-white p-6 rounded-xl shadow-md max-w-6xl mx-auto mb-12">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Assessment History</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Age
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Gender
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Risk Level
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Score
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {history.map((record) => (
+                  <tr key={record._id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(record.createdAt || '').toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {record.measurements.age}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {record.measurements.gender === 'M' ? 'Male' : 'Female'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {record.riskLevel}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {record.riskScore}/15
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <button
+                        onClick={() => loadRecordForEditing(record)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Results Section */}
       {showDiagnosis && diagnosis && (
-        <div
-          className="results-card bg-white p-6 rounded-xl shadow-md max-w-6xl mx-auto mb-12"
-        >
+        <div className="results-card bg-white p-6 rounded-xl shadow-md max-w-6xl mx-auto mb-12">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
             Assessment Results
           </h2>
@@ -449,51 +812,6 @@ const HeartHealthForm: React.FC = () => {
                 </li>
               ))}
             </ul>
-          </div>
-
-          {/* Next Steps */}
-          <div className="next-steps mt-8">
-            <h3 className="text-xl font-semibold text-gray-800 mb-3">
-              Next Steps
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {riskLevel?.includes('High Risk') && (
-                <>
-                  <div className="bg-red-50 p-4 rounded-lg">
-                    <h4 className="font-bold text-red-800 mb-2">
-                      Urgent Care
-                    </h4>
-                    <p className="text-gray-700">
-                      Schedule an appointment with a cardiologist within the next 1-2 weeks.
-                    </p>
-                  </div>
-                  <div className="bg-red-50 p-4 rounded-lg">
-                    <h4 className="font-bold text-red-800 mb-2">
-                      Warning Signs
-                    </h4>
-                    <p className="text-gray-700">
-                      Seek immediate medical attention if you experience chest pain, shortness of breath, or dizziness.
-                    </p>
-                  </div>
-                </>
-              )}
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-bold text-blue-800 mb-2">
-                  Follow-Up
-                </h4>
-                <p className="text-gray-700">
-                  Schedule a follow-up assessment in 3-6 months to track your progress.
-                </p>
-              </div>
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h4 className="font-bold text-green-800 mb-2">
-                  Lifestyle Changes
-                </h4>
-                <p className="text-gray-700">
-                  Implement dietary changes and increase physical activity gradually.
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       )}
