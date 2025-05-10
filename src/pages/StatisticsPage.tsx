@@ -1,648 +1,766 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
-import { Activity, Heart, Droplets, Wind, ChevronDown, ChevronUp } from 'lucide-react';
-import { Line, Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, registerables } from 'chart.js';
-import toast from 'react-hot-toast';
+import { Activity, Droplets, Heart, Wind } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import SubmitButton from '../components/SubmitButton';
-import { statisticsService } from '../Services/api';
-import { 
-  validateDiabetesForm, 
-  validateHeartForm, 
-  validatePressureForm, 
-  validateAnemiaForm 
-} from '../utils/Validators';
+import BMIStatusCard from '../components/BMIStatusCard';
+import HealthTrendsSection from '../components/HealthTrendsSection';
+import LanguageSwitcher from './LanguageSwitcher';
 
-ChartJS.register(...registerables);
+// Updated API token
+const API_URL = 'https://your-api-url/api';
+const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODFhMjY5MGFkMDRkZjRjZWZlYWEyYTUiLCJyb2xlIjoidXNlciIsImlhdCI6MTc0NjU0NDQ2M30.kiKVbi6GJxssFgq4v1S-kCkev_SbZ2rrKUGJbH2EEpE';
 
 const StatisticsPage: React.FC = () => {
   const { t, i18n } = useTranslation();
-  const isRTL = i18n.language === 'ar';
+  const [conditionId, setConditionId] = useState<string>('diabetes');
+  const [formData, setFormData] = useState<Record<string, string>>({
+    // Common fields
+    weight: '',
+    height: '',
+    // Diabetes fields
+    exerciseDuration: '0',
+    bloodSugar: '',
+    // Heart fields
+    cholesterol: '',
+    bloodPressure: '',
+    // Blood pressure fields
+    systolic: '',
+    diastolic: '',
+    // Anemia fields
+    hemoglobin: '',
+    ironLevel: '',
+  });
   
-  // Hardcoded user ID for demo purposes - in a real app this would come from auth context
-  const currentUserId = "6634a23dfe7b123456789abc";
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [showCharts, setShowCharts] = useState<boolean>(false);
+  const [chartData, setChartData] = useState<{
+    monthly: number[];
+    weekly: number[];
+  } | undefined>(undefined);
   
-  const [activeTab, setActiveTab] = useState('diabetes');
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    diabetes: true,
-    heart: false,
-    pressure: false,
-    anemia: false
-  });
-
-  const [isSubmitting, setIsSubmitting] = useState<Record<string, boolean>>({
-    diabetes: false,
-    heart: false,
-    pressure: false,
-    anemia: false
-  });
-
-  const [formErrors, setFormErrors] = useState<Record<string, Record<string, string>>>({
-    diabetes: {},
-    heart: {},
-    pressure: {},
-    anemia: {}
-  });
-
-  // Update document direction when language changes
+  // Set the document direction based on language
   useEffect(() => {
-    document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
-  }, [isRTL]);
+    document.documentElement.dir = i18n.language === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = i18n.language;
+  }, [i18n.language]);
 
-  const toggleSection = (conditionId: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [conditionId]: !prev[conditionId]
-    }));
-    setActiveTab(conditionId);
-  };
+  // Reset showCharts when changing condition
+  useEffect(() => {
+    setShowCharts(false);
+  }, [conditionId]);
 
-  const conditions = [
-    { id: 'diabetes', name: t('conditions.diabetes'), icon: <Droplets className="w-5 h-5" />, color: 'green' },
-    { id: 'heart', name: t('conditions.heart'), icon: <Heart className="w-5 h-5" />, color: 'red' },
-    { id: 'pressure', name: t('conditions.pressure'), icon: <Activity className="w-5 h-5" />, color: 'blue' },
-    { id: 'anemia', name: t('conditions.anemia'), icon: <Wind className="w-5 h-5" />, color: 'purple' }
-  ];
-
-  const [formData, setFormData] = useState({
-    diabetes: { exerciseDuration: '', bloodSugar: '', weight: '', height: '' },
-    heart: { cholesterol: '', bloodPressure: '', weight: '', height: '' },
-    pressure: { systolic: '', diastolic: '', weight: '', height: '' },
-    anemia: { hemoglobin: '', ironLevel: '', weight: '', height: '' }
-  });
-
-  const handleInputChange = (condition: string, field: string, value: string) => {
+  // Handle input changes
+  const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
-      [condition]: {
-        ...prev[condition as keyof typeof prev],
-        [field]: value
-      }
+      [field]: value
     }));
     
-    // Clear error for this field if it exists
-    if (formErrors[condition as keyof typeof formErrors]?.[field]) {
-      setFormErrors(prev => ({
-        ...prev,
-        [condition]: {
-          ...prev[condition as keyof typeof formErrors],
-          [field]: ''
+    // Clear errors when field is edited
+    if (formErrors[field]) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+  };
+
+  // Form validation
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    
+    // Common validations - always required
+    if (!formData.weight || isNaN(Number(formData.weight)) || Number(formData.weight) <= 0) {
+      errors.weight = t('Weight is required');
+    }
+    
+    if (!formData.height || isNaN(Number(formData.height)) || Number(formData.height) <= 0) {
+      errors.height = t('Height is required');
+    }
+    
+    // Condition-specific validations
+    if (conditionId === 'diabetes') {
+      if (!formData.bloodSugar || isNaN(Number(formData.bloodSugar)) || Number(formData.bloodSugar) < 0) {
+        errors.bloodSugar = t('Blood sugar level is required');
+      }
+      if (!formData.exerciseDuration || isNaN(Number(formData.exerciseDuration))) {
+        errors.exerciseDuration = t('Exercise duration is required');
+      }
+    } else if (conditionId === 'heart') {
+      if (!formData.cholesterol || isNaN(Number(formData.cholesterol)) || Number(formData.cholesterol) < 0) {
+        errors.cholesterol = t('Cholesterol level is required');
+      }
+      if (!formData.bloodPressure) {
+        errors.bloodPressure = t('Blood pressure is required');
+      }
+    } else if (conditionId === 'pressure') {
+      if (!formData.systolic || isNaN(Number(formData.systolic)) || Number(formData.systolic) < 0) {
+        errors.systolic = t('Systolic pressure is required');
+      }
+      if (!formData.diastolic || isNaN(Number(formData.diastolic)) || Number(formData.diastolic) < 0) {
+        errors.diastolic = t('Diastolic pressure is required');
+      }
+    } else if (conditionId === 'anemia') {
+      if (!formData.hemoglobin || isNaN(Number(formData.hemoglobin)) || Number(formData.hemoglobin) < 0) {
+        errors.hemoglobin = t('Hemoglobin level is required');
+      }
+      if (!formData.ironLevel || isNaN(Number(formData.ironLevel)) || Number(formData.ironLevel) < 0) {
+        errors.ironLevel = t('Iron level is required');
+      }
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Generate realistic chart data based on form inputs
+  const generateChartData = () => {
+    let monthlyBase = 100;
+    let monthlyVariation = 30;
+    
+    // Adjust base values based on condition and form data
+    switch (conditionId) {
+      case 'diabetes': {
+        const bloodSugar = parseFloat(formData.bloodSugar);
+        if (!isNaN(bloodSugar)) {
+          monthlyBase = bloodSugar;
+          monthlyVariation = bloodSugar * 0.3;
         }
-      }));
+        break;
+      }
+      case 'heart': {
+        const cholesterol = parseFloat(formData.cholesterol);
+        if (!isNaN(cholesterol)) {
+          monthlyBase = cholesterol;
+          monthlyVariation = cholesterol * 0.2;
+        }
+        break;
+      }
+      case 'pressure': {
+        const systolic = parseFloat(formData.systolic);
+        if (!isNaN(systolic)) {
+          monthlyBase = systolic;
+          monthlyVariation = systolic * 0.15;
+        }
+        break;
+      }
+      case 'anemia': {
+        const hemoglobin = parseFloat(formData.hemoglobin);
+        if (!isNaN(hemoglobin)) {
+          monthlyBase = hemoglobin * 10; // Scale up for visibility
+          monthlyVariation = hemoglobin * 2;
+        }
+        break;
+      }
+    }
+    
+    // Generate monthly data with a pattern
+    const monthlyData = Array.from({ length: 30 }, (_, i) => {
+      const trend = Math.sin(i / 5) * (monthlyVariation / 2);
+      const random = Math.random() * monthlyVariation - (monthlyVariation / 2);
+      return Math.max(40, Math.min(450, monthlyBase + trend + random));
+    });
+    
+    // Weekly data based on exercise duration
+    let weeklyBase = 1.5; // Default
+    if (conditionId === 'diabetes') {
+      const exercise = parseFloat(formData.exerciseDuration);
+      if (!isNaN(exercise)) {
+        weeklyBase = exercise / 2;
+      }
+    }
+    
+    const weeklyData = [
+      weeklyBase + 0.5, // Monday
+      weeklyBase - 0.2, // Tuesday
+      weeklyBase + 0.7, // Wednesday
+      weeklyBase + 0.1, // Thursday
+      weeklyBase + 0.3, // Friday
+      weeklyBase - 0.1, // Saturday
+      weeklyBase + 0.4, // Sunday
+    ];
+    
+    return {
+      monthly: monthlyData,
+      weekly: weeklyData
+    };
+  };
+
+  // Handle form submission with API integration
+  const handleSubmit = async () => {
+    if (validateForm()) {
+      setIsSubmitting(true);
+      
+      try {
+        const response = await fetch(`${API_URL}/statistics/${conditionId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${TOKEN}`
+          },
+          body: JSON.stringify({
+            ...formData,
+            timestamp: new Date().toISOString()
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to submit data');
+        }
+
+        // Generate chart data based on form input
+        const newChartData = generateChartData();
+        setChartData(newChartData);
+        
+        // Show charts after successful submission
+        setShowCharts(true);
+        
+        console.log('API Response:', response);
+      } catch (error) {
+        console.error('Error submitting data:', error);
+        setFormErrors(prev => ({
+          ...prev,
+          submit: 'Failed to submit data. Please try again.'
+        }));
+        
+        // Still show charts in case of API error (for demo purposes)
+        const newChartData = generateChartData();
+        setChartData(newChartData);
+        setShowCharts(true);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
-  const handleSubmitDiabetes = async () => {
-    const { isValid, errors } = validateDiabetesForm(formData.diabetes);
-    
-    if (!isValid) {
-      setFormErrors(prev => ({
-        ...prev,
-        diabetes: errors
-      }));
-      toast.error(t('formError'));
-      return;
+  // Render error message
+  const renderError = (field: string) => {
+    if (formErrors[field]) {
+      return <p className="text-red-500 text-sm mt-1">{formErrors[field]}</p>;
     }
+    return null;
+  };
+
+  // Get relevant status values based on condition
+  const getConditionStatus = (condition: string, value: string) => {
+    if (!value) return t('status.enterData');
     
-    setIsSubmitting(prev => ({ ...prev, diabetes: true }));
+    const numValue = parseFloat(value);
     
-    try {
-      await statisticsService.addDiabetesStatistics({
-        userId: currentUserId,
-        exerciseHours: parseFloat(formData.diabetes.exerciseDuration),
-        bloodSugarLevel: parseFloat(formData.diabetes.bloodSugar),
-        weight: parseFloat(formData.diabetes.weight),
-        height: parseFloat(formData.diabetes.height)
-      });
-      
-      toast.success(t('success'));
-    } catch (error) {
-      console.error('Error submitting diabetes data:', error);
-      toast.error(t('error'));
-    } finally {
-      setIsSubmitting(prev => ({ ...prev, diabetes: false }));
+    switch (condition) {
+      case 'diabetes':
+        return numValue > 180 ? t('status.high') : numValue > 70 ? t('status.normal') : t('status.low');
+      case 'heart':
+        return numValue > 200 ? t('status.highRisk') : numValue > 150 ? t('status.moderate') : t('status.normal');
+      case 'pressure':
+        return numValue > 140 ? t('status.high') : numValue > 90 ? t('status.elevated') : t('status.normal');
+      case 'anemia':
+        return numValue < 12 ? t('status.low') : t('status.normal');
+      default:
+        return t('status.enterData');
     }
   };
 
-  const handleSubmitHeart = async () => {
-    const { isValid, errors } = validateHeartForm(formData.heart);
-    
-    if (!isValid) {
-      setFormErrors(prev => ({
-        ...prev,
-        heart: errors
-      }));
-      toast.error(t('formError'));
-      return;
-    }
-    
-    setIsSubmitting(prev => ({ ...prev, heart: true }));
-    
-    try {
-      // Extract heart rate from blood pressure format if needed
-      const heartRate = formData.heart.bloodPressure.includes('/') 
-        ? parseInt(formData.heart.bloodPressure.split('/')[0])
-        : parseInt(formData.heart.bloodPressure);
-      
-      await statisticsService.addHeartStatistics({
-        userId: currentUserId,
-        exerciseHours: 1, // Default value since the form doesn't have this field
-        heartRate,
-        cholesterol: parseFloat(formData.heart.cholesterol),
-        weight: parseFloat(formData.heart.weight),
-        height: parseFloat(formData.heart.height)
-      });
-      
-      toast.success(t('success'));
-    } catch (error) {
-      console.error('Error submitting heart data:', error);
-      toast.error(t('error'));
-    } finally {
-      setIsSubmitting(prev => ({ ...prev, heart: false }));
-    }
-  };
-
-  const handleSubmitPressure = async () => {
-    const { isValid, errors } = validatePressureForm(formData.pressure);
-    
-    if (!isValid) {
-      setFormErrors(prev => ({
-        ...prev,
-        pressure: errors
-      }));
-      toast.error(t('formError'));
-      return;
-    }
-    
-    setIsSubmitting(prev => ({ ...prev, pressure: true }));
-    
-    try {
-      const bloodPressureLevel = `${formData.pressure.systolic}/${formData.pressure.diastolic}`;
-      
-      await statisticsService.addPressureStatistics({
-        userId: currentUserId,
-        exerciseHours: 1, // Default value since the form doesn't have this field
-        bloodPressureLevel,
-        weight: parseFloat(formData.pressure.weight),
-        height: parseFloat(formData.pressure.height)
-      });
-      
-      toast.success(t('success'));
-    } catch (error) {
-      console.error('Error submitting pressure data:', error);
-      toast.error(t('error'));
-    } finally {
-      setIsSubmitting(prev => ({ ...prev, pressure: false }));
-    }
-  };
-
-  const handleSubmitAnemia = async () => {
-    const { isValid, errors } = validateAnemiaForm(formData.anemia);
-    
-    if (!isValid) {
-      setFormErrors(prev => ({
-        ...prev,
-        anemia: errors
-      }));
-      toast.error(t('formError'));
-      return;
-    }
-    
-    setIsSubmitting(prev => ({ ...prev, anemia: true }));
-    
-    try {
-      await statisticsService.addAnemiaStatistics({
-        userId: currentUserId,
-        exerciseHours: 1, // Default value since the form doesn't have this field
-        tookMedication: "No", // Default value
-        hemoglobin: parseFloat(formData.anemia.hemoglobin),
-        ironLevel: parseFloat(formData.anemia.ironLevel),
-        weight: parseFloat(formData.anemia.weight),
-        height: parseFloat(formData.anemia.height)
-      });
-      
-      toast.success(t('success'));
-    } catch (error) {
-      console.error('Error submitting anemia data:', error);
-      toast.error(t('error'));
-    } finally {
-      setIsSubmitting(prev => ({ ...prev, anemia: false }));
-    }
-  };
-
-  const renderError = (condition: string, field: string) => {
-    const error = formErrors[condition as keyof typeof formErrors]?.[field];
-    if (!error) return null;
-    
+  // Condition selector component
+  const ConditionSelector = () => {
     return (
-      <p className="text-red-500 text-xs mt-1 font-medium">
-        {t(error)}
-      </p>
+      <motion.div 
+        className="mb-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div className="text-center mb-0">
+          <h2 className="text-4xl font-extrabold text-gray-800">{t('title')}</h2>
+        </div>
+        <LanguageSwitcher />
+
+        <div className="flex flex-wrap gap-3 justify-center mt-4">
+          {[
+            { id: 'diabetes', color: 'bg-gray-600', icon: <Droplets className="mr-2" /> },
+            { id: 'heart', color: 'bg-gray-600', icon: <Heart className="mr-2" /> },
+            { id: 'pressure', color: 'bg-gray-600', icon: <Wind className="mr-2" /> },
+            { id: 'anemia', color: 'bg-gray-600', icon: <Activity className="mr-2" /> }
+          ].map((condition) => (
+            <motion.button 
+              key={condition.id}
+              onClick={() => setConditionId(condition.id)}
+              className={`px-5 py-2 rounded-lg text-white ${condition.color} ${
+                conditionId === condition.id ? 'ring-2 ring-offset-2 ring-gray-400' : ''
+              }`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <div className="flex items-center">
+                {condition.icon}
+                {t(`conditions.${condition.id}`)}
+              </div>
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
     );
   };
 
-  const weeklyData = {
-    labels: isRTL 
-      ? ['الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد']
-      : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    datasets: [{
-      data: [2.25, 1.5, 2.5, 1.75, 1.75, 1.5, 2.25],
-      backgroundColor: '#4F46E5',
-      borderRadius: 8,
-    }]
-  };
-
-  const monthlyData = {
-    labels: Array.from({ length: 30 }, (_, i) => (i + 1).toString()),
-    datasets: [{
-      data: Array.from({ length: 30 }, () => Math.random() * 200 + 100),
-      borderColor: '#4F46E5',
-      backgroundColor: 'rgba(79, 70, 229, 0.1)',
-      fill: true,
-      tension: 0.4,
-    }]
-  };
-
-  const calculateBMI = (weight: string, height: string) => {
-    const weightNum = parseFloat(weight);
-    const heightNum = parseFloat(height) / 100;
-    if (weightNum && heightNum) {
-      return (weightNum / (heightNum * heightNum)).toFixed(1);
-    }
-    return '--';
-  };
-
-  const getConditionStatus = (condition: string, value: number) => {
-    switch (condition) {
-      case 'diabetes':
-        return value > 180 ? t('status.high') : value > 70 ? t('status.normal') : t('status.low');
-      case 'heart':
-        return value > 200 ? t('status.highRisk') : value > 150 ? t('status.moderate') : t('status.normal');
-      case 'pressure':
-        return value > 140 ? t('status.high') : value > 90 ? t('status.elevated') : t('status.normal');
-      case 'anemia':
-        return value < 12 ? t('status.low') : t('status.normal');
-      default:
-        return '--';
-    }
-  };
-
-  const renderDiabetesSection = () => (
-    <div className="space-y-6">
+  const renderDiabetesForm = () => (
+    <motion.div 
+      className="space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
+        <motion.div
+          initial={{ x: -10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <Activity className="w-5 h-5 text-green-500" />
             <span>{t('labels.exerciseDuration')}</span>
           </label>
           <input
             type="range"
-            value={formData.diabetes.exerciseDuration}
-            onChange={(e) => handleInputChange('diabetes', 'exerciseDuration', e.target.value)}
+            value={formData.exerciseDuration}
+            onChange={(e) => handleInputChange('exerciseDuration', e.target.value)}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
             min="0"
             max="4"
             step="0.25"
           />
           <div className="text-sm text-gray-500 mt-1">
-            {t('status.currentHours', { hours: formData.diabetes.exerciseDuration || '0' })}
+            {t('status.currentHours', { hours: formData.exerciseDuration || '0' })}
           </div>
-          {renderError('diabetes', 'exerciseDuration')}
-        </div>
+          {renderError('exerciseDuration')}
+        </motion.div>
 
-        <div>
+        <motion.div
+          initial={{ x: 10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <Droplets className="w-5 h-5 text-green-500" />
             <span>{t('labels.bloodSugar')}</span>
           </label>
           <input
             type="number"
-            value={formData.diabetes.bloodSugar}
-            onChange={(e) => handleInputChange('diabetes', 'bloodSugar', e.target.value)}
+            value={formData.bloodSugar}
+            onChange={(e) => handleInputChange('bloodSugar', e.target.value)}
             placeholder={t('placeholders.enterValue')}
             className={`w-full p-2 border ${
-              formErrors.diabetes.bloodSugar ? 'border-red-500' : 'border-gray-300'
+              formErrors.bloodSugar ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('diabetes', 'bloodSugar')}
-        </div>
+          {renderError('bloodSugar')}
+        </motion.div>
 
-        <div>
+        <motion.div
+          initial={{ x: -10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <span>{t('labels.weight')}</span>
           </label>
           <input
             type="number"
-            value={formData.diabetes.weight}
-            onChange={(e) => handleInputChange('diabetes', 'weight', e.target.value)}
+            value={formData.weight}
+            onChange={(e) => handleInputChange('weight', e.target.value)}
             placeholder={t('placeholders.enterWeight')}
             className={`w-full p-2 border ${
-              formErrors.diabetes.weight ? 'border-red-500' : 'border-gray-300'
+              formErrors.weight ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('diabetes', 'weight')}
-        </div>
+          {renderError('weight')}
+        </motion.div>
 
-        <div>
+        <motion.div
+          initial={{ x: 10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <span>{t('labels.height')}</span>
           </label>
           <input
             type="number"
-            value={formData.diabetes.height}
-            onChange={(e) => handleInputChange('diabetes', 'height', e.target.value)}
+            value={formData.height}
+            onChange={(e) => handleInputChange('height', e.target.value)}
             placeholder={t('placeholders.enterHeight')}
             className={`w-full p-2 border ${
-              formErrors.diabetes.height ? 'border-red-500' : 'border-gray-300'
+              formErrors.height ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('diabetes', 'height')}
-        </div>
+          {renderError('height')}
+        </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow p-4">
-          <h3 className="text-lg font-semibold mb-4">{t('status.bmi')}</h3>
-          <div className="relative h-4 bg-gray-200 rounded-full mb-2">
-            <div 
-              className="absolute h-full bg-green-500 rounded-full"
-              style={{ width: '60%' }}
-            ></div>
-          </div>
-          <div className="text-center">
-            <span className="text-2xl font-bold">
-              {calculateBMI(formData.diabetes.weight, formData.diabetes.height)}
-            </span>
-            <p className="text-green-600 text-sm">{t('status.healthy')}</p>
-          </div>
-        </div>
+      <AnimatePresence>
+        <motion.div 
+          className="grid grid-cols-1 md:grid-cols-3 gap-6"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.5, duration: 0.4 }}
+        >
+          <BMIStatusCard 
+            weight={formData.weight}
+            height={formData.height}
+            color="green"
+            status={t('status.healthy')}
+          />
 
-        <div className="bg-white rounded-xl shadow p-4">
-          <h3 className="text-lg font-semibold mb-2">{t('status.bloodSugarStatus')}</h3>
-          <div className="text-center">
-            <span className="text-3xl font-bold text-green-500">
-              {formData.diabetes.bloodSugar || '--'} mg/dl
-            </span>
-            <p className="text-sm mt-1">
-              {formData.diabetes.bloodSugar ? 
-                getConditionStatus('diabetes', parseFloat(formData.diabetes.bloodSugar)) : 
-                t('status.enterData')}
-            </p>
-          </div>
-        </div>
+          <motion.div 
+            className="bg-white rounded-xl shadow p-4"
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.6 }}
+          >
+            <h3 className="text-lg font-semibold mb-2">{t('status.bloodSugarStatus')}</h3>
+            <div className="text-center">
+              <span className="text-3xl font-bold text-green-500">
+                {formData.bloodSugar || '--'} mg/dl
+              </span>
+              <p className="text-sm mt-1">
+                {getConditionStatus('diabetes', formData.bloodSugar)}
+              </p>
+            </div>
+          </motion.div>
 
-        <div className="bg-white rounded-xl shadow p-4">
-          <h3 className="text-lg font-semibold mb-2">{t('status.dailyActivity')}</h3>
-          <div className="text-center">
-            <span className="text-3xl font-bold text-green-500">
-              {formData.diabetes.exerciseDuration || '0'} {isRTL ? 'ساعات' : 'hours'}
-            </span>
-          </div>
-        </div>
-      </div>
+          <motion.div 
+            className="bg-white rounded-xl shadow p-4"
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.7 }}
+          >
+            <h3 className="text-lg font-semibold mb-2">{t('status.dailyActivity')}</h3>
+            <div className="text-center">
+              <span className="text-3xl font-bold text-green-500">
+                {formData.exerciseDuration || '0'} {t('hours')}
+              </span>
+            </div>
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>
 
-      <div className="flex justify-end mt-6">
+      <HealthTrendsSection 
+        conditionId="diabetes" 
+        chartData={chartData}
+        showCharts={showCharts}
+      />
+
+      <motion.div 
+        className="flex justify-end mt-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+      >
         <SubmitButton 
-          onClick={handleSubmitDiabetes}
-          isLoading={isSubmitting.diabetes}
+          onClick={handleSubmit}
+          isLoading={isSubmitting}
           color="green"
-          label={isSubmitting.diabetes ? t('submitting') : t('submit')}
+          label={isSubmitting ? t('submitting') : t('submit')}
         />
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 
-  const renderHeartSection = () => (
-    <div className="space-y-6">
+  const renderHeartForm = () => (
+    <motion.div 
+      className="space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
+        <motion.div
+          initial={{ x: -10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <Activity className="w-5 h-5 text-red-500" />
             <span>{t('labels.cholesterol')}</span>
           </label>
           <input
             type="number"
-            value={formData.heart.cholesterol}
-            onChange={(e) => handleInputChange('heart', 'cholesterol', e.target.value)}
+            value={formData.cholesterol}
+            onChange={(e) => handleInputChange('cholesterol', e.target.value)}
             placeholder={t('placeholders.enterCholesterol')}
             className={`w-full p-2 border ${
-              formErrors.heart.cholesterol ? 'border-red-500' : 'border-gray-300'
+              formErrors.cholesterol ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('heart', 'cholesterol')}
-        </div>
+          {renderError('cholesterol')}
+        </motion.div>
 
-        <div>
+        <motion.div
+          initial={{ x: 10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <Heart className="w-5 h-5 text-red-500" />
             <span>{t('labels.bloodPressure')}</span>
           </label>
           <input
             type="text"
-            value={formData.heart.bloodPressure}
-            onChange={(e) => handleInputChange('heart', 'bloodPressure', e.target.value)}
+            value={formData.bloodPressure}
+            onChange={(e) => handleInputChange('bloodPressure', e.target.value)}
             placeholder={t('placeholders.bloodPressureFormat')}
             className={`w-full p-2 border ${
-              formErrors.heart.bloodPressure ? 'border-red-500' : 'border-gray-300'
+              formErrors.bloodPressure ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('heart', 'bloodPressure')}
-        </div>
+          {renderError('bloodPressure')}
+        </motion.div>
 
-        <div>
+        <motion.div
+          initial={{ x: -10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <span>{t('labels.weight')}</span>
           </label>
           <input
             type="number"
-            value={formData.heart.weight}
-            onChange={(e) => handleInputChange('heart', 'weight', e.target.value)}
+            value={formData.weight}
+            onChange={(e) => handleInputChange('weight', e.target.value)}
             placeholder={t('placeholders.enterWeight')}
             className={`w-full p-2 border ${
-              formErrors.heart.weight ? 'border-red-500' : 'border-gray-300'
+              formErrors.weight ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('heart', 'weight')}
-        </div>
+          {renderError('weight')}
+        </motion.div>
 
-        <div>
+        <motion.div
+          initial={{ x: 10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <span>{t('labels.height')}</span>
           </label>
           <input
             type="number"
-            value={formData.heart.height}
-            onChange={(e) => handleInputChange('heart', 'height', e.target.value)}
+            value={formData.height}
+            onChange={(e) => handleInputChange('height', e.target.value)}
             placeholder={t('placeholders.enterHeight')}
             className={`w-full p-2 border ${
-              formErrors.heart.height ? 'border-red-500' : 'border-gray-300'
+              formErrors.height ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('heart', 'height')}
-        </div>
+          {renderError('height')}
+        </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow p-4">
-          <h3 className="text-lg font-semibold mb-4">{t('status.bmi')}</h3>
-          <div className="relative h-4 bg-gray-200 rounded-full mb-2">
-            <div 
-              className="absolute h-full bg-red-500 rounded-full"
-              style={{ width: '40%' }}
-            ></div>
-          </div>
-          <div className="text-center">
-            <span className="text-2xl font-bold">
-              {calculateBMI(formData.heart.weight, formData.heart.height)}
-            </span>
-            <p className="text-red-600 text-sm">{t('status.monitorWeight')}</p>
-          </div>
-        </div>
+      <motion.div 
+        className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.5, duration: 0.4 }}
+      >
+        <BMIStatusCard 
+          weight={formData.weight}
+          height={formData.height}
+          color="red"
+          status={t('status.monitorWeight')}
+        />
 
-        <div className="bg-white rounded-xl shadow p-4">
+        <motion.div 
+          className="bg-white rounded-xl shadow p-4"
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.6 }}
+        >
           <h3 className="text-lg font-semibold mb-2">{t('status.cholesterolStatus')}</h3>
           <div className="text-center">
             <span className="text-3xl font-bold text-red-500">
-              {formData.heart.cholesterol || '--'} mg/dl
+              {formData.cholesterol || '--'} mg/dl
             </span>
             <p className="text-sm mt-1">
-              {formData.heart.cholesterol ? 
-                getConditionStatus('heart', parseFloat(formData.heart.cholesterol)) : 
-                t('status.enterData')}
+              {getConditionStatus('heart', formData.cholesterol)}
             </p>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="bg-white rounded-xl shadow p-4">
+        <motion.div 
+          className="bg-white rounded-xl shadow p-4"
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.7 }}
+        >
           <h3 className="text-lg font-semibold mb-2">{t('status.bloodPressure')}</h3>
           <div className="text-center">
             <span className="text-3xl font-bold text-red-500">
-              {formData.heart.bloodPressure || '--/--'}
+              {formData.bloodPressure || '--/--'}
             </span>
             <p className="text-sm mt-1">
-              {formData.heart.bloodPressure ? 
+              {formData.bloodPressure ? 
                 t('status.monitorRegularly') : 
                 t('status.enterData')}
             </p>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <div className="flex justify-end mt-6">
+      <HealthTrendsSection 
+        conditionId="heart" 
+        chartData={chartData}
+        showCharts={showCharts}
+      />
+
+      <motion.div 
+        className="flex justify-end mt-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+      >
         <SubmitButton 
-          onClick={handleSubmitHeart}
-          isLoading={isSubmitting.heart}
+          onClick={handleSubmit}
+          isLoading={isSubmitting}
           color="red"
-          label={isSubmitting.heart ? t('submitting') : t('submit')}
+          label={isSubmitting ? t('submitting') : t('submit')}
         />
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 
-  const renderPressureSection = () => (
-    <div className="space-y-6">
+  const renderPressureForm = () => (
+    <motion.div 
+      className="space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
+        <motion.div
+          initial={{ x: -10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <Activity className="w-5 h-5 text-blue-500" />
             <span>{t('labels.systolic')}</span>
           </label>
           <input
             type="number"
-            value={formData.pressure.systolic}
-            onChange={(e) => handleInputChange('pressure', 'systolic', e.target.value)}
+            value={formData.systolic}
+            onChange={(e) => handleInputChange('systolic', e.target.value)}
             placeholder={t('placeholders.upperNumber')}
             className={`w-full p-2 border ${
-              formErrors.pressure.systolic ? 'border-red-500' : 'border-gray-300'
+              formErrors.systolic ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('pressure', 'systolic')}
-        </div>
+          {renderError('systolic')}
+        </motion.div>
 
-        <div>
+        <motion.div
+          initial={{ x: 10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <Activity className="w-5 h-5 text-blue-500" />
             <span>{t('labels.diastolic')}</span>
           </label>
           <input
             type="number"
-            value={formData.pressure.diastolic}
-            onChange={(e) => handleInputChange('pressure', 'diastolic', e.target.value)}
+            value={formData.diastolic}
+            onChange={(e) => handleInputChange('diastolic', e.target.value)}
             placeholder={t('placeholders.lowerNumber')}
             className={`w-full p-2 border ${
-              formErrors.pressure.diastolic ? 'border-red-500' : 'border-gray-300'
+              formErrors.diastolic ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('pressure', 'diastolic')}
-        </div>
+          {renderError('diastolic')}
+        </motion.div>
 
-        <div>
+        <motion.div
+          initial={{ x: -10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <span>{t('labels.weight')}</span>
           </label>
           <input
             type="number"
-            value={formData.pressure.weight}
-            onChange={(e) => handleInputChange('pressure', 'weight', e.target.value)}
+            value={formData.weight}
+            onChange={(e) => handleInputChange('weight', e.target.value)}
             placeholder={t('placeholders.enterWeight')}
             className={`w-full p-2 border ${
-              formErrors.pressure.weight ? 'border-red-500' : 'border-gray-300'
+              formErrors.weight ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('pressure', 'weight')}
-        </div>
+          {renderError('weight')}
+        </motion.div>
 
-        <div>
+        <motion.div
+          initial={{ x: 10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <span>{t('labels.height')}</span>
           </label>
           <input
             type="number"
-            value={formData.pressure.height}
-            onChange={(e) => handleInputChange('pressure', 'height', e.target.value)}
+            value={formData.height}
+            onChange={(e) => handleInputChange('height', e.target.value)}
             placeholder={t('placeholders.enterHeight')}
             className={`w-full p-2 border ${
-              formErrors.pressure.height ? 'border-red-500' : 'border-gray-300'
+              formErrors.height ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('pressure', 'height')}
-        </div>
+          {renderError('height')}
+        </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow p-4">
-          <h3 className="text-lg font-semibold mb-4">{t('status.bmi')}</h3>
-          <div className="relative h-4 bg-gray-200 rounded-full mb-2">
-            <div 
-              className="absolute h-full bg-blue-500 rounded-full"
-              style={{ width: '50%' }}
-            ></div>
-          </div>
-          <div className="text-center">
-            <span className="text-2xl font-bold">
-              {calculateBMI(formData.pressure.weight, formData.pressure.height)}
-            </span>
-            <p className="text-blue-600 text-sm">{t('status.keepMonitoring')}</p>
-          </div>
-        </div>
+      <motion.div 
+        className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.5, duration: 0.4 }}
+      >
+        <BMIStatusCard 
+          weight={formData.weight}
+          height={formData.height}
+          color="blue"
+          status={t('status.keepMonitoring')}
+        />
 
-        <div className="bg-white rounded-xl shadow p-4">
+        <motion.div 
+          className="bg-white rounded-xl shadow p-4"
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.6 }}
+        >
           <h3 className="text-lg font-semibold mb-2">{t('status.bloodPressure')}</h3>
           <div className="text-center">
             <span className="text-3xl font-bold text-blue-500">
-              {formData.pressure.systolic || '--'}/{formData.pressure.diastolic || '--'} mmHg
+              {formData.systolic || '--'}/{formData.diastolic || '--'} mmHg
             </span>
             <p className="text-sm mt-1">
-              {formData.pressure.systolic && formData.pressure.diastolic ? 
-                getConditionStatus('pressure', parseFloat(formData.pressure.systolic)) : 
+              {formData.systolic && formData.diastolic ? 
+                getConditionStatus('pressure', formData.systolic) : 
                 t('status.enterData')}
             </p>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="bg-white rounded-xl shadow p-4">
+        <motion.div 
+          className="bg-white rounded-xl shadow p-4"
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.7 }}
+        >
           <h3 className="text-lg font-semibold mb-2">{t('status.recommendations')}</h3>
           <div className="text-center">
             <span className="text-lg text-blue-500">
@@ -650,236 +768,219 @@ const StatisticsPage: React.FC = () => {
             </span>
             <p className="text-sm mt-1">{t('status.exerciseRegularly')}</p>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <div className="flex justify-end mt-6">
+      <HealthTrendsSection 
+        conditionId="pressure" 
+        chartData={chartData}
+        showCharts={showCharts}
+      />
+
+      <motion.div 
+        className="flex justify-end mt-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+      >
         <SubmitButton 
-          onClick={handleSubmitPressure}
-          isLoading={isSubmitting.pressure}
+          onClick={handleSubmit}
+          isLoading={isSubmitting}
           color="blue"
-          label={isSubmitting.pressure ? t('submitting') : t('submit')}
+          label={isSubmitting ? t('submitting') : t('submit')}
         />
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 
-  const renderAnemiaSection = () => (
-    <div className="space-y-6">
+  const renderAnemiaForm = () => (
+    <motion.div 
+      className="space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
+        <motion.div
+          initial={{ x: -10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <Wind className="w-5 h-5 text-purple-500" />
             <span>{t('labels.hemoglobin')}</span>
           </label>
           <input
             type="number"
-            value={formData.anemia.hemoglobin}
-            onChange={(e) => handleInputChange('anemia', 'hemoglobin', e.target.value)}
+            value={formData.hemoglobin}
+            onChange={(e) => handleInputChange('hemoglobin', e.target.value)}
             placeholder={t('placeholders.enterHemoglobin')}
             className={`w-full p-2 border ${
-              formErrors.anemia.hemoglobin ? 'border-red-500' : 'border-gray-300'
+              formErrors.hemoglobin ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('anemia', 'hemoglobin')}
-        </div>
+          {renderError('hemoglobin')}
+        </motion.div>
 
-        <div>
+        <motion.div
+          initial={{ x: 10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <Wind className="w-5 h-5 text-purple-500" />
             <span>{t('labels.ironLevel')}</span>
           </label>
           <input
             type="number"
-            value={formData.anemia.ironLevel}
-            onChange={(e) => handleInputChange('anemia', 'ironLevel', e.target.value)}
+            value={formData.ironLevel}
+            onChange={(e) => handleInputChange('ironLevel', e.target.value)}
             placeholder={t('placeholders.enterIronLevel')}
             className="w-full p-2 border border-gray-300 rounded-lg"
           />
-        </div>
+        </motion.div>
 
-        <div>
+        <motion.div
+          initial={{ x: -10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <span>{t('labels.weight')}</span>
           </label>
           <input
             type="number"
-            value={formData.anemia.weight}
-            onChange={(e) => handleInputChange('anemia', 'weight', e.target.value)}
+            value={formData.weight}
+            onChange={(e) => handleInputChange('weight', e.target.value)}
             placeholder={t('placeholders.enterWeight')}
             className={`w-full p-2 border ${
-              formErrors.anemia.weight ? 'border-red-500' : 'border-gray-300'
+              formErrors.weight ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('anemia', 'weight')}
-        </div>
+          {renderError('weight')}
+        </motion.div>
 
-        <div>
+        <motion.div
+          initial={{ x: 10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
           <label className="flex items-center space-x-2 text-gray-700 mb-2">
             <span>{t('labels.height')}</span>
           </label>
           <input
             type="number"
-            value={formData.anemia.height}
-            onChange={(e) => handleInputChange('anemia', 'height', e.target.value)}
+            value={formData.height}
+            onChange={(e) => handleInputChange('height', e.target.value)}
             placeholder={t('placeholders.enterHeight')}
             className={`w-full p-2 border ${
-              formErrors.anemia.height ? 'border-red-500' : 'border-gray-300'
+              formErrors.height ? 'border-red-500' : 'border-gray-300'
             } rounded-lg`}
           />
-          {renderError('anemia', 'height')}
-        </div>
+          {renderError('height')}
+        </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow p-4">
-          <h3 className="text-lg font-semibold mb-4">{t('status.bmi')}</h3>
-          <div className="relative h-4 bg-gray-200 rounded-full mb-2">
-            <div 
-              className="absolute h-full bg-purple-500 rounded-full"
-              style={{ width: '55%' }}
-            ></div>
-          </div>
-          <div className="text-center">
-            <span className="text-2xl font-bold">
-              {calculateBMI(formData.anemia.weight, formData.anemia.height)}
-            </span>
-            <p className="text-purple-600 text-sm">{t('status.healthyRange')}</p>
-          </div>
-        </div>
+      <motion.div 
+        className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.5, duration: 0.4 }}
+      >
+        <BMIStatusCard 
+          weight={formData.weight}
+          height={formData.height}
+          color="purple"
+          status={t('status.healthyRange')}
+        />
 
-        <div className="bg-white rounded-xl shadow p-4">
+        <motion.div 
+          className="bg-white rounded-xl shadow p-4"
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.6 }}
+        >
           <h3 className="text-lg font-semibold mb-2">{t('status.hemoglobinStatus')}</h3>
           <div className="text-center">
             <span className="text-3xl font-bold text-purple-500">
-              {formData.anemia.hemoglobin || '--'} g/dL
+              {formData.hemoglobin || '--'} g/dL
             </span>
             <p className="text-sm mt-1">
-              {formData.anemia.hemoglobin ? 
-                getConditionStatus('anemia', parseFloat(formData.anemia.hemoglobin)) : 
-                t('status.enterData')}
+              {getConditionStatus('anemia', formData.hemoglobin)}
             </p>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="bg-white rounded-xl shadow p-4">
+        <motion.div 
+          className="bg-white rounded-xl shadow p-4"
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.7 }}
+        >
           <h3 className="text-lg font-semibold mb-2">{t('status.ironLevel')}</h3>
           <div className="text-center">
             <span className="text-3xl font-bold text-purple-500">
-              {formData.anemia.ironLevel || '--'} μg/dL
+              {formData.ironLevel || '--'} μg/dL
             </span>
             <p className="text-sm mt-1">
-              {formData.anemia.ironLevel ? 
-                (parseFloat(formData.anemia.ironLevel) < 60 ? t('status.low') : t('status.normal')) : 
+              {formData.ironLevel ? 
+                (parseFloat(formData.ironLevel) < 60 ? t('status.low') : t('status.normal')) : 
                 t('status.enterData')}
             </p>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      <div className="flex justify-end mt-6">
+      <HealthTrendsSection 
+        conditionId="anemia" 
+        chartData={chartData}
+        showCharts={showCharts}
+      />
+
+      <motion.div 
+        className="flex justify-end mt-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+      >
         <SubmitButton 
-          onClick={handleSubmitAnemia}
-          isLoading={isSubmitting.anemia}
+          onClick={handleSubmit}
+          isLoading={isSubmitting}
           color="purple"
-          label={isSubmitting.anemia ? t('submitting') : t('submit')}
+          label={isSubmitting ? t('submitting') : t('submit')}
         />
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 
+  const renderFormSections = () => {
+    switch (conditionId) {
+      case 'diabetes':
+        return renderDiabetesForm();
+      case 'heart':
+        return renderHeartForm();
+      case 'pressure':
+        return renderPressureForm();
+      case 'anemia':
+        return renderAnemiaForm();
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">{t('title')}</h1>
-        </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-6">
+        <ConditionSelector />
         
-        <div className="space-y-6">
-          {conditions.map((condition) => (
-            <div key={condition.id} className="bg-white rounded-2xl shadow overflow-hidden">
-              <button
-                onClick={() => toggleSection(condition.id)}
-                className={`w-full flex justify-between items-center p-6 text-left ${
-                  expandedSections[condition.id] ? 'bg-indigo-50' : 'hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center space-x-4">
-                  <div className={`p-3 rounded-lg ${
-                    condition.id === 'diabetes' ? 'bg-green-100 text-green-600' :
-                    condition.id === 'heart' ? 'bg-red-100 text-red-600' :
-                    condition.id === 'pressure' ? 'bg-blue-100 text-blue-600' :
-                    'bg-purple-100 text-purple-600'
-                  }`}>
-                    {condition.icon}
-                  </div>
-                  <h2 className="text-xl font-semibold">{condition.name}</h2>
-                </div>
-                {expandedSections[condition.id] ? (
-                  <ChevronUp className="w-5 h-5 text-gray-500" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-500" />
-                )}
-              </button>
-              
-              {expandedSections[condition.id] && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="p-6 pt-0"
-                >
-                  {condition.id === 'diabetes' && renderDiabetesSection()}
-                  {condition.id === 'heart' && renderHeartSection()}
-                  {condition.id === 'pressure' && renderPressureSection()}
-                  {condition.id === 'anemia' && renderAnemiaSection()}
-
-                  <div className="mt-8">
-                    <h3 className="text-lg font-semibold mb-4">{t('healthTrends')}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-white rounded-xl shadow p-4">
-                        <h4 className="text-md font-medium mb-4">{t('monthlyTrend')}</h4>
-                        <div className="h-64">
-                          <Line 
-                            data={monthlyData}
-                            options={{
-                              responsive: true,
-                              maintainAspectRatio: false,
-                              plugins: { legend: { display: false } },
-                              scales: {
-                                x: { display: true },
-                                y: { display: true }
-                              }
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="bg-white rounded-xl shadow p-4">
-                        <h4 className="text-md font-medium mb-4">{t('weeklyActivity')}</h4>
-                        <div className="h-64">
-                          <Bar 
-                            data={weeklyData}
-                            options={{
-                              responsive: true,
-                              maintainAspectRatio: false,
-                              plugins: { legend: { display: false } },
-                              scales: {
-                                x: { grid: { display: false } },
-                                y: { grid: { display: false } }
-                              }
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-          ))}
-        </div>
+        <motion.div 
+          className="bg-white shadow rounded-lg p-6"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          {renderFormSections()}
+        </motion.div>
       </div>
     </div>
   );

@@ -1,9 +1,10 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 
 interface SubmitButtonProps {
   onClick: () => void;
   isLoading: boolean;
-  color: 'green' | 'red' | 'blue' |  'purple';
+  color: 'green' | 'red' | 'blue' | 'purple';
   label: string;
 }
 
@@ -16,39 +17,39 @@ const SubmitButton: React.FC<SubmitButtonProps> = ({
   const getColorClasses = () => {
     switch (color) {
       case 'green':
-        return 'bg-green-500 hover:bg-green-600 focus:ring-green-300';
+        return 'bg-green-500 hover:bg-green-600';
       case 'red':
-        return 'bg-red-500 hover:bg-red-600 focus:ring-red-300';
+        return 'bg-red-500 hover:bg-red-600';
       case 'blue':
-        return 'bg-blue-500 hover:bg-blue-600 focus:ring-blue-300';
+        return 'bg-blue-500 hover:bg-blue-600';
       case 'purple':
-        return 'bg-purple-500 hover:bg-purple-600 focus:ring-purple-300';
+        return 'bg-purple-500 hover:bg-purple-600';
       default:
-        return 'bg-indigo-500 hover:bg-indigo-600 focus:ring-indigo-300';
+        return 'bg-gray-500 hover:bg-gray-600';
     }
   };
 
   return (
-    <button
+    <motion.button
       onClick={onClick}
       disabled={isLoading}
-      className={`${getColorClasses()} text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center 
-      mr-2 inline-flex items-center justify-center transition-all duration-200 ease-in-out
-      focus:outline-none focus:ring-4 focus:ring-opacity-50 w-full
-      disabled:opacity-70 disabled:cursor-not-allowed`}
+      className={`px-6 py-2 rounded-lg text-white font-medium ${getColorClasses()} 
+                transition duration-200 ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
     >
       {isLoading ? (
-        <>
-          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <div className="flex items-center">
+          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          {label}...
-        </>
+          {label}
+        </div>
       ) : (
         label
       )}
-    </button>
+    </motion.button>
   );
 };
 

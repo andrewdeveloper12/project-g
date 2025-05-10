@@ -1,9 +1,10 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 
+// First version of the API service
 // Replace with your actual API base URL
 const API_BASE_URL = 'https://your-api-url.com/api';
 
-// Create axios instance with default config
+// Create axios instance with default config  
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -12,15 +13,39 @@ const api = axios.create({
 });
 
 // Add auth token to requests if available
-api.interceptors.request.use((config: AxiosRequestConfig) => {
-  const token = localStorage.getItem('authToken');
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
+api.interceptors.request.use(
+  (config: AxiosRequestConfig) => {
+    const token = localStorage.getItem('authToken');
+
+    // Ensure headers are defined
+    if (!config.headers) {
+      config.headers = {};
+    }
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Unified Error Handler
+const handleError = (error: AxiosError) => {
+  console.error('API Error:', error.response?.data || error.message);
+  throw error.response?.data || error.message;
+};
+
+// Unified Request Handler
+const request = async (method: 'get' | 'post' | 'put', url: string, data?: any) => {
+  try {
+    const response = await api[method](url, data);
+    return response.data;
+  } catch (error) {
+    handleError(error as AxiosError);
   }
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
+};
 
 // Type definitions
 export interface DiabetesStatistics {
@@ -61,116 +86,126 @@ export interface AnemiaStatistics {
 // API service functions
 export const statisticsService = {
   // Diabetes Statistics
-  getDiabetesStatistics: async (userId: string) => {
-    try {
-      const response = await api.get(`/diabetes-statistics/user/${userId}`);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-  
-  addDiabetesStatistics: async (data: DiabetesStatistics) => {
-    try {
-      const response = await api.post('/diabetes-statistics', data);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-  
-  updateDiabetesStatistics: async (statId: string, data: DiabetesStatistics) => {
-    try {
-      const response = await api.put(`/diabetes-statistics/${statId}`, data);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-  
+  getDiabetesStatistics: (userId: string) => request('get', `/diabetes-statistics/user/${userId}`),
+  addDiabetesStatistics: (data: DiabetesStatistics) => request('post', '/diabetes-statistics', data),
+  updateDiabetesStatistics: (statId: string, data: DiabetesStatistics) =>
+    request('put', `/diabetes-statistics/${statId}`, data),
+
   // Heart Statistics
-  getHeartStatistics: async (userId: string) => {
-    try {
-      const response = await api.get(`/heart-statistics/user/${userId}`);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-  
-  addHeartStatistics: async (data: HeartStatistics) => {
-    try {
-      const response = await api.post('/heart-statistics', data);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-  
-  updateHeartStatistics: async (statId: string, data: HeartStatistics) => {
-    try {
-      const response = await api.put(`/heart-statistics/${statId}`, data);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-  
+  getHeartStatistics: (userId: string) => request('get', `/heart-statistics/user/${userId}`),
+  addHeartStatistics: (data: HeartStatistics) => request('post', '/heart-statistics', data),
+  updateHeartStatistics: (statId: string, data: HeartStatistics) =>
+    request('put', `/heart-statistics/${statId}`, data),
+
   // Pressure Statistics
-  getPressureStatistics: async (userId: string) => {
-    try {
-      const response = await api.get(`/pressure-statistics/user/${userId}`);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-  
-  addPressureStatistics: async (data: PressureStatistics) => {
-    try {
-      const response = await api.post('/pressure-statistics', data);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-  
-  updatePressureStatistics: async (statId: string, data: PressureStatistics) => {
-    try {
-      const response = await api.put(`/pressure-statistics/${statId}`, data);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-  
+  getPressureStatistics: (userId: string) => request('get', `/pressure-statistics/user/${userId}`),
+  addPressureStatistics: (data: PressureStatistics) => request('post', '/pressure-statistics', data),
+  updatePressureStatistics: (statId: string, data: PressureStatistics) =>
+    request('put', `/pressure-statistics/${statId}`, data),
+
   // Anemia Statistics
-  getAnemiaStatistics: async (userId: string) => {
-    try {
-      const response = await api.get(`/anemia-statistics/user/${userId}`);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+  getAnemiaStatistics: (userId: string) => request('get', `/anemia-statistics/user/${userId}`),
+  addAnemiaStatistics: (data: AnemiaStatistics) => request('post', '/anemia-statistics', data),
+  updateAnemiaStatistics: (statId: string, data: AnemiaStatistics) =>
+    request('put', `/anemia-statistics/${statId}`, data),
+};
+
+// Second version of the API service (duplicate with different variable names)
+const API_BASE_URL_V2 = 'https://your-api-url.com/api';
+
+const apiV2 = axios.create({
+  baseURL: API_BASE_URL_V2,
+  headers: {
+    'Content-Type': 'application/json',
   },
-  
-  addAnemiaStatistics: async (data: AnemiaStatistics) => {
-    try {
-      const response = await api.post('/anemia-statistics', data);
-      return response.data;
-    } catch (error) {
-      throw error;
+});
+
+apiV2.interceptors.request.use(
+  (config: AxiosRequestConfig) => {
+    const token = localStorage.getItem('authToken');
+
+    if (!config.headers) {
+      config.headers = {};
     }
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
   },
-  
-  updateAnemiaStatistics: async (statId: string, data: AnemiaStatistics) => {
-    try {
-      const response = await api.put(`/anemia-statistics/${statId}`, data);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+  (error) => Promise.reject(error)
+);
+
+const handleErrorV2 = (error: AxiosError) => {
+  console.error('API Error:', error.response?.data || error.message);
+  throw error.response?.data || error.message;
+};
+
+const requestV2 = async (method: 'get' | 'post' | 'put', url: string, data?: any) => {
+  try {
+    const response = await apiV2[method](url, data);
+    return response.data;
+  } catch (error) {
+    handleErrorV2(error as AxiosError);
   }
+};
+
+export interface DiabetesStatisticsV2 {
+  userId: string;
+  exerciseHours: number;
+  bloodSugarLevel: number;
+  weight: number;
+  height: number;
+}
+
+export interface HeartStatisticsV2 {
+  userId: string;
+  exerciseHours: number;
+  heartRate: number;
+  cholesterol: number;
+  weight: number;
+  height: number;
+}
+
+export interface PressureStatisticsV2 {
+  userId: string;
+  exerciseHours: number;
+  bloodPressureLevel: string;
+  weight: number;
+  height: number;
+}
+
+export interface AnemiaStatisticsV2 {
+  userId: string;
+  exerciseHours: number;
+  tookMedication: string;
+  hemoglobin?: number;
+  ironLevel?: number;
+  weight: number;
+  height: number;
+}
+
+export const statisticsServiceV2 = {
+  getDiabetesStatistics: (userId: string) => requestV2('get', `/diabetes-statistics/user/${userId}`),
+  addDiabetesStatistics: (data: DiabetesStatisticsV2) => requestV2('post', '/diabetes-statistics', data),
+  updateDiabetesStatistics: (statId: string, data: DiabetesStatisticsV2) =>
+    requestV2('put', `/diabetes-statistics/${statId}`, data),
+
+  getHeartStatistics: (userId: string) => requestV2('get', `/heart-statistics/user/${userId}`),
+  addHeartStatistics: (data: HeartStatisticsV2) => requestV2('post', '/heart-statistics', data),
+  updateHeartStatistics: (statId: string, data: HeartStatisticsV2) =>
+    requestV2('put', `/heart-statistics/${statId}`, data),
+
+  getPressureStatistics: (userId: string) => requestV2('get', `/pressure-statistics/user/${userId}`),
+  addPressureStatistics: (data: PressureStatisticsV2) => requestV2('post', '/pressure-statistics', data),
+  updatePressureStatistics: (statId: string, data: PressureStatisticsV2) =>
+    requestV2('put', `/pressure-statistics/${statId}`, data),
+
+  getAnemiaStatistics: (userId: string) => requestV2('get', `/anemia-statistics/user/${userId}`),
+  addAnemiaStatistics: (data: AnemiaStatisticsV2) => requestV2('post', '/anemia-statistics', data),
+  updateAnemiaStatistics: (statId: string, data: AnemiaStatisticsV2) =>
+    requestV2('put', `/anemia-statistics/${statId}`, data),
 };
 
 export default statisticsService;
