@@ -446,6 +446,7 @@ const Resources: React.FC = () => {
       )}
     </div>
   );
+  
 };
 
 export default Resources;
