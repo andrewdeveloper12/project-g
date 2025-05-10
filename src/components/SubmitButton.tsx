@@ -3,7 +3,7 @@ import React from 'react';
 interface SubmitButtonProps {
   onClick: () => void;
   isLoading: boolean;
-  color: 'green' | 'red' | 'blue' | 'purple';
+  color: 'green' | 'red' | 'blue' |  'purple';
   label: string;
 }
 
