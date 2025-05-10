@@ -35,8 +35,8 @@ const Resources: React.FC = () => {
   const [searchResults, setSearchResults] = useState<ResourceItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // WhatsApp community group link
-  const whatsappGroupLink = "https://chat.whatsapp.com/YOUR_GROUP_INVITE_LINK";
+  // WhatsApp community group link - updated with your provided link
+  const whatsappGroupLink = "https://chat.whatsapp.com/EcQ6kyOlnXk7oeVGrrLja8";
 
   const categories: ResourceCategory[] = [
     {
