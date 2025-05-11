@@ -7,7 +7,7 @@ import path from 'path';
 const PORT = process.env.PORT || 5173;
 
 export default defineConfig({
-  base: '/project-g/', // Change to '/' if you want to serve from the root
+  base: './', // Change to '/' if you want to serve from the root
   plugins: [react(), tsconfigPaths()],
   resolve: {
     alias: {
