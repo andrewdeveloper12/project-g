@@ -36,7 +36,7 @@ const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-teal-50 p-4">
+    <div className="min-h-screen  flex items-center justify-center bg-gradient-to-br from-blue-50 to-teal-50 p-4">
       <div className="w-full max-w-md p-8 space-y-12 bg-white rounded-xl shadow-lg">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold text-gray-900">{t('forgotPassword.title')}</h1>
